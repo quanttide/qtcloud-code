@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["tests*"]
+
+[project]
+name = "qtcloud-code-cli"
+version = "0.1.0"
+description = "Code CLI — 代码审计与质量管理"
+requires-python = ">=3.12"
+dependencies = [
+    "typer",
+    "pydantic-settings",
+]
+
+[project.scripts]
+qtcloud-code = "app.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
