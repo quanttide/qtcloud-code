@@ -2,7 +2,7 @@ name: publish
 
 on:
   workflow_run:
-    workflows: [build]
+    workflows: [build-cli]
     types: [completed]
 
 jobs:
