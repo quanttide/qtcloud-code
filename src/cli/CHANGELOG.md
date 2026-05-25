@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] — 2026-05-26
+
+- `contract` 命令：init / list / validate / list --json
+- `refactor rename`：符号表 + 实际文件写入 + `--dry-run`
+- 规则引擎加强：覆盖基准 90%（当前 93%）
+- 发布流水线：release → build-cli → release-cli → crates.io
+- 89 测试，移除实验代码
+
 ## [0.2.0-rc.3] — 2026-05-26
 
 - 验证 release-cli（`cargo publish`）工作流
