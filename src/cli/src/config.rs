@@ -1,15 +1,16 @@
 use std::path::Path;
+use serde::{Deserialize, Serialize};
 
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ContractConfig {
     pub code: Option<CodeConfig>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct CodeConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub exclude: Option<Vec<String>>,
 }
 

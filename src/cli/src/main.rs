@@ -30,12 +30,37 @@ enum Commands {
         status: bool,
     },
     /// 列出可用检测规则
-    ListRules,
+    ListRules {
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
+    },
+    /// 管理 .quanttide/code/contract.yaml 配置
+    Contract {
+        /// 目标目录
+        path: String,
+        #[command(subcommand)]
+        action: ContractAction,
+    },
     /// 代码变换操作
     Refactor {
         #[command(subcommand)]
         action: RefactorAction,
     },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum ContractAction {
+    /// 创建默认配置文件
+    Init,
+    /// 列出可用检测规则
+    List {
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
+    },
+    /// 校验配置文件
+    Validate,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -86,7 +111,12 @@ fn main() {
     let cli = Cli::parse();
     let result = match cli.command {
         Commands::Review { path, format, rules, status } => run_review(&path, &format, rules, status),
-        Commands::ListRules => run_list_rules(),
+        Commands::ListRules { json } => run_list_rules(json),
+        Commands::Contract { path, action } => match action {
+            ContractAction::Init => run_contract_init(&path),
+            ContractAction::List { json } => run_contract_list(json),
+            ContractAction::Validate => run_contract_validate(&path),
+        },
         Commands::Refactor { action } => match action {
             RefactorAction::Apply { file, line, dry_run } => {
                 run_refactor_apply(file, line, dry_run)
@@ -217,15 +247,34 @@ fn find_project_root(path: &Path) -> Option<PathBuf> {
     None
 }
 
-fn run_list_rules() -> Result<(), String> {
-    println!("可用检测规则（语法级）:");
-    for d in list_detectors() {
-        println!("  {} — {}", d.rule_id(), d.description());
+fn run_list_rules(json: bool) -> Result<(), String> {
+    let all_rules = all_rule_ids();
+    if json {
+        println!("{}", qtcloud_code_cli::contract::list(&all_rules));
+    } else {
+        let detector_rules: Vec<&str> = all_rules.iter().filter(|r| **r != "unused-variable" && **r != "missing-tests").copied().collect();
+        let compiler_rules = vec![
+            (qtcloud_code_cli::detector::unused_variable::RULE_ID, qtcloud_code_cli::detector::unused_variable::DESCRIPTION),
+            (qtcloud_code_cli::detector::missing_tests::RULE_ID, qtcloud_code_cli::detector::missing_tests::DESCRIPTION),
+        ];
+        print!("{}", qtcloud_code_cli::contract::list_terminal(&detector_rules, &compiler_rules));
     }
-    println!("\n可用检测规则（编译器级）:");
-    println!("  {} — {}", qtcloud_code_cli::detector::unused_variable::RULE_ID, qtcloud_code_cli::detector::unused_variable::DESCRIPTION);
-    println!("  {} — {}", qtcloud_code_cli::detector::missing_tests::RULE_ID, qtcloud_code_cli::detector::missing_tests::DESCRIPTION);
     Ok(())
+}
+
+fn run_contract_list(json: bool) -> Result<(), String> {
+    run_list_rules(json)
+}
+
+fn run_contract_init(path: &str) -> Result<(), String> {
+    let root = Path::new(path);
+    qtcloud_code_cli::contract::init(root)
+}
+
+fn run_contract_validate(path: &str) -> Result<(), String> {
+    let root = Path::new(path);
+    let all_rules = all_rule_ids();
+    qtcloud_code_cli::contract::validate(root, &all_rules)
 }
 
 fn run_refactor_apply(file: String, line: usize, dry_run: bool) -> Result<(), String> {
