@@ -72,16 +72,6 @@ enum ContractAction {
 #[derive(Debug, Clone, Subcommand)]
 enum RefactorAction {
     /// 应用 patch
-    Apply {
-        /// 目标文件
-        file: String,
-        /// 起始行号
-        #[arg(long)]
-        line: usize,
-        /// 仅预览 diff，不写入文件
-        #[arg(long, default_value_t = false)]
-        dry_run: bool,
-    },
     /// 重命名符号
     Rename {
         /// 目标文件
@@ -124,9 +114,6 @@ fn main() {
             ContractAction::Validate { path } => run_contract_validate(&path),
         },
         Commands::Refactor { action } => match action {
-            RefactorAction::Apply { file, line, dry_run } => {
-                run_refactor_apply(file, line, dry_run)
-            }
             RefactorAction::Rename { file, old_name, new_name, dry_run } => {
                 run_refactor_rename(file, old_name, new_name, dry_run)
             }
@@ -281,28 +268,6 @@ fn run_contract_validate(path: &str) -> Result<(), String> {
     let root = Path::new(path);
     let all_rules = all_rule_ids();
     qtcloud_code_cli::contract::validate(root, &all_rules)
-}
-
-fn run_refactor_apply(file: String, line: usize, dry_run: bool) -> Result<(), String> {
-    let path = Path::new(&file);
-    let source = std::fs::read_to_string(path)
-        .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
-    let patch = qtcloud_code_cli::refactor::safety::Patch {
-        finding_id: "manual".into(),
-        file: path.to_path_buf(),
-        start_line: line,
-        end_line: line,
-        old_text: source.clone(),
-        new_text: source,
-    };
-    if dry_run {
-        let diff = qtcloud_code_cli::refactor::safety::dry_run(&patch);
-        println!("{}", diff);
-    } else {
-        qtcloud_code_cli::refactor::safety::apply_patch(&patch)?;
-        println!("已写入: {}", file);
-    }
-    Ok(())
 }
 
 fn run_refactor_rename(file: String, old_name: String, new_name: String, _dry_run: bool) -> Result<(), String> {
