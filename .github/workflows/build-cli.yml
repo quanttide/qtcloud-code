@@ -3,20 +3,33 @@ name: build-cli
 on:
   push:
     branches: [main]
+    tags: ['cli/*']
     paths:
       - 'src/cli/**'
   pull_request:
     paths:
       - 'src/cli/**'
-  release:
-    types: [published]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: build
+        run: cargo build
+      - name: test
+        run: cargo test
+
   check:
     if: startsWith(github.ref, 'refs/tags/cli/')
+    needs: test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,21 +44,7 @@ jobs:
       - name: validate changelog
         run: |
           VERSION="${{ steps.version.outputs.value }}"
-          grep -q "## [$VERSION]" CHANGELOG.md || { echo "CHANGELOG.md missing entry for $VERSION"; exit 1; }
-
-  test:
-    if: github.event_name != 'release'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/cli
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: build
-        run: cargo build
-      - name: test
-        run: cargo test
+          grep -Eq "^## \[?${VERSION#v}\]?" CHANGELOG.md || { echo "CHANGELOG.md missing entry for ${VERSION#v}"; exit 1; }
 
   build-binaries:
     if: startsWith(github.ref, 'refs/tags/cli/')
