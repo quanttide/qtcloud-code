@@ -5,3 +5,5 @@
 {"id":"f3b0237e-a8d9-4981-afae-2a717315ad99","version":"cli/v0.1.0-rc.5","status":"Staged","created_at":"1779717469"}
 {"id":"3751fe15-ac03-42bd-9509-0dd539281a30","version":"cli/v0.1.0-rc.6","status":"Staged","created_at":"1779717720"}
 {"id":"f762d920-6235-4094-ba45-b1ae48c7a636","version":"cli/v0.1.0","status":"Published","created_at":"1779718085"}
+{"id":"d9fdc35f-1cb3-491f-8ac4-734cfaf52d61","version":"cli/v0.2.0-rc.1","status":"Staged","created_at":"1779730410"}
+{"id":"15ec35a2-eac5-4557-8374-08c59679fcaa","version":"cli/v0.2.0-rc.2","status":"Staged","created_at":"1779730589"}
