@@ -3,12 +3,13 @@ name: build-cli
 on:
   push:
     branches: [main]
-    tags: ['cli/*']
     paths:
       - 'src/cli/**'
   pull_request:
     paths:
       - 'src/cli/**'
+  release:
+    types: [published]
 
 env:
   CARGO_TERM_COLOR: always
