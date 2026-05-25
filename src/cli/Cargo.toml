@@ -1,0 +1,32 @@
+[package]
+name = "qtcloud-code-cli"
+version = "0.1.0"
+edition = "2024"
+description = "多语言代码静态分析与质量检测 CLI"
+authors = ["QuantTide <opensource@quanttide.com>"]
+license = "Apache 2.0"
+repository = "https://github.com/quanttide/quanttide-laboratory-of-software-engineering"
+
+[[bin]]
+name = "qtcloud-code"
+path = "src/main.rs"
+
+[[test]]
+name = "review"
+path = "tests/review.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tree-sitter = "0.25"
+tree-sitter-rust = "0.23"
+tree-sitter-python = "0.25"
+tree-sitter-go = "0.25"
+tree-sitter-dart = "0.2"
+tree-sitter-typescript = "0.23"
+serde_yaml = "0.9"
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"

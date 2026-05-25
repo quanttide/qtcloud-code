@@ -1,0 +1,6 @@
+code:
+  exclude:
+    - src/main.rs
+    - src/lib.rs
+    - src/lang/mod.rs
+    - src/detect/mod.rs
