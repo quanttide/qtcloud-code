@@ -7,7 +7,10 @@
 ## 安装
 
 ```sh
-# 在 crate 目录下
+# 从 crates.io 安装（推荐）
+cargo install qtcloud-code-cli
+
+# 或从源码编译
 cd apps/qtcloud-code/src/cli
 cargo install --path .
 ```
@@ -52,6 +55,7 @@ qtcloud-code contract validate
 
 ```sh
 # 应用 patch（默认写入，--dry-run 预览）
+# 注意：当前 apply 仅验证文件写入机制，不做实际重构
 qtcloud-code refactor apply <file> --line <N>
 qtcloud-code refactor apply <file> --line <N> --dry-run
 
