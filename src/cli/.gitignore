@@ -80,3 +80,4 @@ dmypy.json
 cython_debug/
 .idea/
 pdm.lock
+target/lcov.info
