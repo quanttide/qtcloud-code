@@ -2,57 +2,82 @@
 
 ## 定位
 
-多语言代码静态分析 CLI，聚焦**可检测、可复现、可自动化**的代码问题。
-不依赖 LLM，纯规则引擎 + AST 分析 + 编译器集成。
+3R 代码审查 CLI：**review → reflect → refactor**。
 
-## 阶段
+人机协作：AI（LLM）是初级程序员主力干活，规则引擎是安全网，人类是高级程序员定策略。
 
-### P0 — 已完成 ✅
+## P0 — 已完成 ✅
 
-- [x] CLI 命令框架（`review` / `list-rules`）
+- [x] CLI 框架（`review` / `list-rules`）
 - [x] 多语言解析：Rust / Python / Go / Dart / TypeScript (TSX)
 - [x] 5 检测器：过长函数、unsafe 块、过长参数列表、未使用变量、缺失测试
-- [x] 配置系统：`.quanttide/code/contract.yaml` + `--rules` 过滤
+- [x] 配置系统：`.quanttide/code/contract.yaml` + `--rules`
 - [x] 输出格式：终端 / JSON / STATUS.md
-- [x] 自举验证 + 77 测试 + 95% 覆盖率
-- [x] 发布流水线：`cli/v*` tag → build-cli → release-cli
+- [x] 自举验证 + 119 测试
+- [x] 发布流水线：`cli/v*` tag → crates.io
 
-### P1 — `contract` 命令升级
+## P1 — `--llm` 模式（LLM 审查）
 
-`list-rules` 升级为 `contract` 子命令，统一管理契约配置。
+引入 `--llm` 标志，LLM 对规则引擎的 finding 做二次审查。
 
+```sh
+qtcloud-code review .              # 规则引擎（当前行为）
+qtcloud-code review . --llm        # 规则引擎 + LLM 审查
 ```
-qtcloud-code contract init        # 创建默认 .quanttide/code/contract.yaml
-qtcloud-code contract list        # 列出可用规则（当前 list-rules 功能）
+
+### LLM 审查内容
+
+- 对每个 finding 做优先级排序、上下文追加、误报标记
+- 纯 LLM 规则：安全漏洞、并发 bug、逻辑错误（规则引擎无法检测的）
+- 跨 finding 根因分析（reflect）
+- 项目级健康摘要
+
+### 需要实现
+
+- [ ] `--llm` 标志和 LLM 客户端接口
+- [ ] finding 增强：LLM 输出叠加到原始 finding
+- [ ] 纯 LLM 规则定义框架
+- [ ] 成本控制：只对有 finding 的文件发起调用
+- [ ] 缓存：同一文件同一版本的结果缓存
+
+## P2 — `--mode deep`（LLM 修复）
+
+引入 `--mode deep`，LLM 在审查基础上生成修复 patch。
+
+```sh
+qtcloud-code review . --mode deep           # dry-run（显示 diff）
+qtcloud-code review . --mode deep --apply   # 确认写入
+```
+
+### 安全机制（从实验室 refactor/safety.rs 集成）
+
+- [ ] `Patch` 结构：文件、行范围、新旧文本
+- [ ] `dry-run`：生成 diff，不写文件
+- [ ] `--apply`：确认写入，验证 old_text 匹配
+- [ ] 自动验证：编译 + 测试通过才确认
+- [ ] 验证失败回退
+- [ ] `rollback` 回滚
+- [ ] `OperationLog` 操作日志
+
+### 符号表（从实验室 refactor/rename.rs 集成）
+
+- [ ] `SymbolTable`：函数定义→调用点映射
+- [ ] `build_symbol_table()`：扫描项目构建符号表
+- [ ] `rename_symbol()`：生成替换映射
+
+## P3 — `contract` 命令
+
+`list-rules` 升级为 `contract` 子命令。
+
+```sh
+qtcloud-code contract init        # 创建默认配置
+qtcloud-code contract list        # 列出可用规则（JSON 支持）
 qtcloud-code contract validate    # 校验配置 vs 实际规则
 qtcloud-code contract diff        # 对比配置与项目实际状态
 ```
 
-区别：
-
-| 当前 | 目标 |
-|------|------|
-| `list-rules` 仅打印规则列表 | `contract list` 可输出 JSON，支持 `--enabled` 过滤 |
-| 无初始化向导 | `contract init` 交互式创建配置 |
-| 无校验 | `contract validate` 发现废弃规则、缺失排除等 |
-| 规则硬编码在 main.rs | 规则元数据可抽取为独立模块 |
-
-### P2 — 检测器深度
-
-- [ ] Go / Dart / TypeScript 专用检测器（当前只有 Rust 的 unsafe_block）
-- [ ] 嵌套过长函数检测（回调地狱、箭头函数链）
-- [ ] 文件级忽略机制（行级 `/ /qtcloud-code ignore` + 配置级 exclude）
-- [ ] 跨文件检测：重复代码、循环依赖
-
-### P3 — 项目级增强
-
-- [ ] 增量扫描（基于 git diff，只分析变更文件）
-- [ ] 基线模式（`--baseline baseline.json`，仅报告新增问题）
-- [ ] 规则推荐：基于项目语言和规模自动推荐启用规则
-- [ ] 多语言通用 `unsafe` / 等效关键词检测
-
 ## 非目标
 
-- 不做自动修复（只检测，不修改）
-- 不做全语义级分析（类型推断、数据流分析）
-- 不依赖 LLM 或外部 API
+- 不做纯规则引擎的 reflect/refactor（分析、决策、修复由 LLM 做）
+- 无 LLM 时保持当前行为不变（`--llm`、`--mode deep` 均需显式传入）
+- 不承诺 LLM 结果的可复现性（确定性部分由规则引擎保证）
