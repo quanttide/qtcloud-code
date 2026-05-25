@@ -1,6 +1,6 @@
 [package]
 name = "qtcloud-code-cli"
-version = "0.1.0"
+version = "0.2.0-rc.3"
 edition = "2024"
 description = "多语言代码静态分析与质量检测 CLI"
 authors = ["QuantTide <opensource@quanttide.com>"]

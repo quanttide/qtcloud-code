@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0-rc.3] — 2026-05-26
+
+- 验证 release-cli（`cargo publish`）工作流
+- Cargo.toml version 对齐 `0.2.0-rc.3`
+
 ## [0.2.0-rc.2] — 2026-05-26
 
 - `contract` 命令：init / list / validate
