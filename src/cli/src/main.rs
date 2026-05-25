@@ -270,7 +270,7 @@ fn run_contract_validate(path: &str) -> Result<(), String> {
     qtcloud_code_cli::contract::validate(root, &all_rules)
 }
 
-fn run_refactor_rename(file: String, old_name: String, new_name: String, _dry_run: bool) -> Result<(), String> {
+fn run_refactor_rename(file: String, old_name: String, new_name: String, dry_run: bool) -> Result<(), String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
@@ -282,11 +282,37 @@ fn run_refactor_rename(file: String, old_name: String, new_name: String, _dry_ru
     let replacements = qtcloud_code_cli::refactor::rename::rename_symbol(&table, &old_name, &new_name);
     if replacements.is_empty() {
         println!("未找到符号 '{}'", old_name);
-    } else {
+        return Ok(());
+    }
+
+    if dry_run {
         for (loc, name) in &replacements {
             println!("  {} → {}", loc, name);
         }
+        println!("共 {} 处替换（--dry-run 模式，未写入）", replacements.len());
+        return Ok(());
     }
+
+    // 实际写入
+    let mut lines: Vec<String> = source.split('\n').map(|s| s.to_string()).collect();
+    let mut count = 0;
+    for (loc, _) in &replacements {
+        let parts: Vec<&str> = loc.split(':').collect();
+        if parts.len() < 2 { continue; }
+        let line_num: usize = match parts[1].parse() {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
+        if line_num == 0 || line_num > lines.len() { continue; }
+        let idx = line_num - 1;
+        if lines[idx].contains(&old_name) {
+            lines[idx] = lines[idx].replace(&old_name, &new_name);
+            count += 1;
+        }
+    }
+    std::fs::write(path, lines.join("\n"))
+        .map_err(|e| format!("写入失败: {}", e))?;
+    println!("已重命名 {} 处，写入: {}", count, file);
     Ok(())
 }
 

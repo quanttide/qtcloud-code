@@ -54,8 +54,9 @@ qtcloud-code contract validate
 ### 代码变换（预览版）
 
 ```sh
-# 重命名符号（仅预览，不写入文件）
+# 重命名符号（默认写入，--dry-run 预览）
 qtcloud-code refactor rename <file> --old-name foo --new-name bar
+qtcloud-code refactor rename <file> --old-name foo --new-name bar --dry-run
 ```
 
 ## 检测规则
