@@ -49,7 +49,7 @@ enum RefactorAction {
         line: usize,
         /// 仅预览 diff，不写入文件
         #[arg(long, default_value_t = false)]
-        _dry_run: bool,
+        dry_run: bool,
     },
     /// 重命名符号
     Rename {
@@ -63,12 +63,7 @@ enum RefactorAction {
         new_name: String,
         /// 仅预览替换列表，不写入文件
         #[arg(long, default_value_t = false)]
-        _dry_run: bool,
-    },
-    /// 撤销上一次 apply
-    Revert {
-        /// 目标文件
-        file: String,
+        dry_run: bool,
     },
 }
 
@@ -98,9 +93,6 @@ fn main() {
             }
             RefactorAction::Rename { file, old_name, new_name, dry_run } => {
                 run_refactor_rename(file, old_name, new_name, dry_run)
-            }
-            RefactorAction::Revert { file } => {
-                run_refactor_revert(file)
             }
         }
     };
@@ -236,7 +228,7 @@ fn run_list_rules() -> Result<(), String> {
     Ok(())
 }
 
-fn run_refactor_apply(file: String, line: usize, _dry_run: bool) -> Result<(), String> {
+fn run_refactor_apply(file: String, line: usize, dry_run: bool) -> Result<(), String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
@@ -278,19 +270,3 @@ fn run_refactor_rename(file: String, old_name: String, new_name: String, _dry_ru
     Ok(())
 }
 
-fn run_refactor_revert(file: String) -> Result<(), String> {
-    let path = Path::new(&file);
-    let source = std::fs::read_to_string(path)
-        .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
-    let patch = qtcloud_code_cli::refactor::safety::Patch {
-        finding_id: "manual".into(),
-        file: path.to_path_buf(),
-        start_line: 1,
-        end_line: 1,
-        old_text: source,
-        new_text: String::new(),
-    };
-    qtcloud_code_cli::refactor::safety::revert(&patch)?;
-    println!("已撤销: {}", file);
-    Ok(())
-}

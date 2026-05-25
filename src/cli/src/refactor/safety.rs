@@ -85,21 +85,6 @@ mod tests {
         let content = std::fs::read_to_string(&f).unwrap();
         assert!(content.contains("new line"));
     }
-
-    #[test]
-    fn test_revert() {
-        let dir = tempfile::tempdir().unwrap();
-        let f = dir.path().join("f.rs");
-        std::fs::write(&f, "// MODIFIED\nother\n").unwrap();
-        let p = Patch {
-            finding_id: "t".into(), file: f.clone(),
-            start_line: 1, end_line: 1,
-            old_text: "old".into(), new_text: "new".into(),
-        };
-        assert!(revert(&p).is_ok());
-        let content = std::fs::read_to_string(&f).unwrap();
-        assert!(content.contains("// ROLLED BACK"));
-    }
 }
 
 use std::fs;
@@ -188,23 +173,3 @@ pub fn apply_patch(patch: &Patch) -> Result<bool, String> {
     Ok(true)
 }
 
-/// 回滚：恢复原始内容
-pub fn revert(patch: &Patch) -> Result<bool, String> {
-    let content = fs::read_to_string(&patch.file)
-        .map_err(|e| format!("读取失败: {}", e))?;
-
-    let lines: Vec<&str> = content.split('\n').collect();
-    // 替换标记行
-    let new_lines: Vec<String> = lines.iter().map(|line| {
-        if line.starts_with("// MODIFIED") {
-            "// ROLLED BACK".to_string()
-        } else {
-            line.to_string()
-        }
-    }).collect();
-
-    fs::write(&patch.file, new_lines.join("\n"))
-        .map_err(|e| format!("写入失败: {}", e))?;
-
-    Ok(true)
-}
