@@ -5,7 +5,7 @@ edition = "2024"
 description = "多语言代码静态分析与质量检测 CLI"
 authors = ["QuantTide <opensource@quanttide.com>"]
 license = "Apache 2.0"
-repository = "https://github.com/quanttide/quanttide-laboratory-of-software-engineering"
+repository = "https://github.com/quanttide/qtcloud-code.git"
 
 [[bin]]
 name = "qtcloud-code"
