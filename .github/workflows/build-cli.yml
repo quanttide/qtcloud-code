@@ -27,6 +27,17 @@ jobs:
         run: cargo build
       - name: test
         run: cargo test
+      - name: install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: coverage check（≥90%）
+        run: |
+          cargo llvm-cov test --lcov --output-path lcov.info
+          COV=$(cargo llvm-cov report | grep TOTAL | awk '{print $10}' | tr -d '%')
+          if [ "$(echo "$COV < 90" | bc)" -eq 1 ]; then
+            echo "❌ 覆盖率 $COV% 低于基准 90%"
+            exit 1
+          fi
+          echo "✅ 覆盖率 $COV% ≥ 90%"
 
   check:
     if: startsWith(github.ref, 'refs/tags/cli/')
