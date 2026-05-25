@@ -1,12 +1,16 @@
 # Changelog
 
-## [0.2.0-rc.1] — 2026-05-26
+## [0.2.0-rc.2] — 2026-05-26
 
 - `contract` 命令：init / list / validate
 - `refactor rename`：符号表 + 实际文件写入 + `--dry-run`
 - `list-rules --json` 输出
 - 89 测试，覆盖率 93%
 - 移除实验代码（dead_code、revert、apply）
+
+## [0.2.0-rc.1] — 2026-05-26
+
+- CI 验证（CHANGELOG 未提交导致 check 失败）
 
 ## [0.1.0] — 2026-05-25
 
