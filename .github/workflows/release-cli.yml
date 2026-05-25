@@ -1,4 +1,4 @@
-name: publish-cli
+name: release-cli
 
 on:
   workflow_run:
