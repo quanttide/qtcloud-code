@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rollback() {
+    fn test_revert() {
         let dir = tempfile::tempdir().unwrap();
         let f = dir.path().join("f.rs");
         std::fs::write(&f, "// MODIFIED\nother\n").unwrap();
@@ -96,7 +96,7 @@ mod tests {
             start_line: 1, end_line: 1,
             old_text: "old".into(), new_text: "new".into(),
         };
-        assert!(rollback(&p).is_ok());
+        assert!(revert(&p).is_ok());
         let content = std::fs::read_to_string(&f).unwrap();
         assert!(content.contains("// ROLLED BACK"));
     }
@@ -189,7 +189,7 @@ pub fn apply_patch(patch: &Patch) -> Result<bool, String> {
 }
 
 /// 回滚：恢复原始内容
-pub fn rollback(patch: &Patch) -> Result<bool, String> {
+pub fn revert(patch: &Patch) -> Result<bool, String> {
     let content = fs::read_to_string(&patch.file)
         .map_err(|e| format!("读取失败: {}", e))?;
 

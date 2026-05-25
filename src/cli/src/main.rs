@@ -31,22 +31,44 @@ enum Commands {
     },
     /// 列出可用检测规则
     ListRules,
-    /// 代码变换操作（提取函数、重命名符号等）
+    /// 代码变换操作
     Refactor {
+        #[command(subcommand)]
+        action: RefactorAction,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum RefactorAction {
+    /// 应用 patch
+    Apply {
         /// 目标文件
         file: String,
-        /// 变换操作: extract-function | rename-symbol | dry-run | apply | rollback
+        /// 起始行号
         #[arg(long)]
-        op: String,
-        /// 起始行号（用于 extract-function）
+        line: usize,
+        /// 仅预览 diff，不写入文件
+        #[arg(long, default_value_t = false)]
+        _dry_run: bool,
+    },
+    /// 重命名符号
+    Rename {
+        /// 目标文件
+        file: String,
+        /// 旧名称
         #[arg(long)]
-        line: Option<usize>,
-        /// 旧名称（用于 rename-symbol）
+        old_name: String,
+        /// 新名称
         #[arg(long)]
-        old_name: Option<String>,
-        /// 新名称（用于 rename-symbol）
-        #[arg(long)]
-        new_name: Option<String>,
+        new_name: String,
+        /// 仅预览替换列表，不写入文件
+        #[arg(long, default_value_t = false)]
+        _dry_run: bool,
+    },
+    /// 撤销上一次 apply
+    Revert {
+        /// 目标文件
+        file: String,
     },
 }
 
@@ -70,8 +92,16 @@ fn main() {
     let result = match cli.command {
         Commands::Review { path, format, rules, status } => run_review(&path, &format, rules, status),
         Commands::ListRules => run_list_rules(),
-        Commands::Refactor { file, op, line, old_name, new_name } => {
-            run_refactor(&file, &op, line, old_name.as_deref(), new_name.as_deref())
+        Commands::Refactor { action } => match action {
+            RefactorAction::Apply { file, line, dry_run } => {
+                run_refactor_apply(file, line, dry_run)
+            }
+            RefactorAction::Rename { file, old_name, new_name, dry_run } => {
+                run_refactor_rename(file, old_name, new_name, dry_run)
+            }
+            RefactorAction::Revert { file } => {
+                run_refactor_revert(file)
+            }
         }
     };
 
@@ -206,55 +236,61 @@ fn run_list_rules() -> Result<(), String> {
     Ok(())
 }
 
-fn run_refactor(file: &str, op: &str, line: Option<usize>, old_name: Option<&str>, new_name: Option<&str>) -> Result<(), String> {
-    let path = Path::new(file);
+fn run_refactor_apply(file: String, line: usize, _dry_run: bool) -> Result<(), String> {
+    let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
-
-    match op {
-        "dry-run" | "apply" | "rollback" => {
-            let patch = qtcloud_code_cli::refactor::safety::Patch {
-                finding_id: "manual".into(),
-                file: path.to_path_buf(),
-                start_line: line.unwrap_or(1),
-                end_line: line.unwrap_or(1),
-                old_text: source.clone(),
-                new_text: source,
-            };
-            match op {
-                "dry-run" => {
-                    let diff = qtcloud_code_cli::refactor::safety::dry_run(&patch);
-                    println!("{}", diff);
-                }
-                "apply" => {
-                    qtcloud_code_cli::refactor::safety::apply_patch(&patch)?;
-                    println!("已写入: {}", file);
-                }
-                "rollback" => {
-                    qtcloud_code_cli::refactor::safety::rollback(&patch)?;
-                    println!("已回滚: {}", file);
-                }
-                _ => unreachable!(),
-            }
-        }
-        "rename-symbol" => {
-            let old = old_name.ok_or("需要 --old-name")?;
-            let new = new_name.ok_or("需要 --new-name")?;
-            let mut parser = tree_sitter::Parser::new();
-            parser.set_language(&tree_sitter_rust::LANGUAGE.into())
-                .map_err(|_| "设置 Rust 语言失败".to_string())?;
-            let tree = parser.parse(&source, None).ok_or("解析失败".to_string())?;
-            let table = qtcloud_code_cli::refactor::rename::build_symbol_table(&source, &tree, path);
-            let replacements = qtcloud_code_cli::refactor::rename::rename_symbol(&table, old, new);
-            if replacements.is_empty() {
-                println!("未找到符号 '{}'", old);
-            } else {
-                for (loc, new_name) in &replacements {
-                    println!("  {} → {}", loc, new_name);
-                }
-            }
-        }
-        _ => return Err(format!("未知操作: {}（支持: dry-run, apply, rollback, rename-symbol）", op)),
+    let patch = qtcloud_code_cli::refactor::safety::Patch {
+        finding_id: "manual".into(),
+        file: path.to_path_buf(),
+        start_line: line,
+        end_line: line,
+        old_text: source.clone(),
+        new_text: source,
+    };
+    if dry_run {
+        let diff = qtcloud_code_cli::refactor::safety::dry_run(&patch);
+        println!("{}", diff);
+    } else {
+        qtcloud_code_cli::refactor::safety::apply_patch(&patch)?;
+        println!("已写入: {}", file);
     }
+    Ok(())
+}
+
+fn run_refactor_rename(file: String, old_name: String, new_name: String, _dry_run: bool) -> Result<(), String> {
+    let path = Path::new(&file);
+    let source = std::fs::read_to_string(path)
+        .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&tree_sitter_rust::LANGUAGE.into())
+        .map_err(|_| "设置 Rust 语言失败".to_string())?;
+    let tree = parser.parse(&source, None).ok_or("解析失败".to_string())?;
+    let table = qtcloud_code_cli::refactor::rename::build_symbol_table(&source, &tree, path);
+    let replacements = qtcloud_code_cli::refactor::rename::rename_symbol(&table, &old_name, &new_name);
+    if replacements.is_empty() {
+        println!("未找到符号 '{}'", old_name);
+    } else {
+        for (loc, name) in &replacements {
+            println!("  {} → {}", loc, name);
+        }
+    }
+    Ok(())
+}
+
+fn run_refactor_revert(file: String) -> Result<(), String> {
+    let path = Path::new(&file);
+    let source = std::fs::read_to_string(path)
+        .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
+    let patch = qtcloud_code_cli::refactor::safety::Patch {
+        finding_id: "manual".into(),
+        file: path.to_path_buf(),
+        start_line: 1,
+        end_line: 1,
+        old_text: source,
+        new_text: String::new(),
+    };
+    qtcloud_code_cli::refactor::safety::revert(&patch)?;
+    println!("已撤销: {}", file);
     Ok(())
 }
