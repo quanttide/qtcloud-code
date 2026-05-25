@@ -1,43 +1,89 @@
 # ROADMAP — qtcloud-code-cli
 
-## 定位
+## v0.1.0（当前）
 
-多语言代码静态分析 CLI，聚焦**可检测、可复现、可自动化**的代码问题。不依赖 LLM，纯规则引擎 + AST 分析。
+CLI 骨架 + 硬编码检测器，规则阈值写死在代码里。
 
-## 阶段
+```yaml
+# 当前检测器注册硬编码在 main.rs:
+list_detectors() -> vec![
+    UnsafeBlockDetector,    # 阈值 3/5/8
+    LongFunctionDetector,   # 阈值 30/50/80
+]
+```
 
-### P0 — CLI 骨架 & 单语言 MVP
+**局限**：规则不可配置，阈值不可调，不支持按项目定制。
 
-- [ ] CLI 命令框架（`scan`/`check`/`list-rules`）
-- [ ] tree-sitter 集成，支持 Rust 解析
-- [ ] 第一个检测器：无用依赖 / 未使用变量（Rust）
-- [ ] 输出格式：JSON + 终端表格
+---
 
-### P1 — 多语言扩展
+## v0.2.0 — 围绕 Contract 重构
 
-- [ ] 语言解析器抽象层（`LanguageParser` trait）
-- [ ] Python 支持（tree-sitter-python）
-- [ ] Go 支持（tree-sitter-go）
-- [ ] Dart 支持（tree-sitter-dart）
-- [ ] TypeScript/JavaScript 支持（tree-sitter-typescript）
-- [ ] 通用检测器：过长函数、过长参数列表、重复代码
+### 核心思路
 
-### P2 — 规则系统
+用 `qtcloud-code.toml`（Contract 文件）替代硬编码规则注册和阈值。工具以 Contract 为中心：
 
-- [ ] 规则注册与配置（`--rules` / `.qtcloud-code.toml`）
-- [ ] 规则分类：正确性 / 性能 / 可维护性 / 风格
-- [ ] 忽略机制（行级注释 / 文件级配置）
-- [ ] 自定义规则 DSL 或插件接口
+```
+Contract 文件 (.qtcloud-code.toml)
+        │
+        ├── 定义规则（哪些开/关）
+        ├── 定义阈值（30/50 还是 60/100）
+        ├── 定义忽略模式
+        └── 定义语言解析器启用列表
+                │
+                ▼
+        工具读取 Contract → 按 Contract 配置运行
+```
 
-### P3 — 生产就绪
+### Contract 文件格式（初稿）
 
-- [ ] CI 集成（GitHub Action、pre-commit hook）
-- [ ] 增量扫描（只分析 diff）
-- [ ] 基线模式（仅报告新增问题）
-- [ ] 多线程并行扫描
+```toml
+version = "1"
 
-## 非目标
+[languages]
+rust = true
+python = true
+go = false
+typescript = false
 
-- 不做自动修复（只检测，不修改）
-- 不做语义级分析（类型推断、数据流分析）
-- 不依赖 LLM 或外部 API
+[rules.long-function]
+enabled = true
+severity = "should"
+threshold = 50
+
+[rules.unsafe-block]
+enabled = true
+severity = "must"
+threshold = 3
+
+[ignore]
+paths = ["vendor/", "generated/"]
+```
+
+### 待实施
+
+- [ ] 定义 `Contract` 数据模型（Rust struct + serde Deserialize）
+- [ ] `config.rs` — 读取 `qtcloud-code.toml`，合并默认值，支持逐级查找（项目 → 用户 → 内置默认）
+- [ ] `rule_registry.rs` — 由 Contract 驱动规则注册，替代 `list_detectors()` 硬编码
+- [ ] `LangParser` 工厂方法改为由 Contract 控制启用哪些语言
+- [ ] `review` 命令新增 `--contract <path>` 参数，默认查找项目根目录
+- [ ] `list-rules` 改为读取 Contract 后输出：仅输出已启用的规则，附带当前阈值
+- [ ] 内置默认 Contract（无 `qtcloud-code.toml` 时的后备行为，与当前硬编码行为兼容）
+- [ ] `init` 子命令：`qtcloud-code init` 在当前目录生成默认 `qtcloud-code.toml`
+
+### 兼容性
+
+| 场景 | 行为 |
+|------|------|
+| 项目有 `qtcloud-code.toml` | 读取并应用，完全按 Contract 运行 |
+| 项目无 `qtcloud-code.toml` | 使用内置默认 Contract（行为与 v0.1.0 一致） |
+| 传 `--contract <path>` | 使用指定路径的 Contract |
+
+不破坏向后兼容性。
+
+---
+
+## 未来（v0.3.0+）
+
+- Contract 支持 version pinning（锁定规则版本）
+- 多合约合并（基础合约 + 项目覆写）
+- CI 集成：`qtcloud-code check --contract .qtcloud-code.toml` 失败时退出码非 0
