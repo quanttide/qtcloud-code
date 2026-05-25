@@ -129,26 +129,40 @@ mod tests {
     fn test_build_symbol_table_basic() {
         let code = "fn hello() {} fn main() { hello(); }";
         let mut p = tree_sitter::Parser::new();
-        if p.set_language(&tree_sitter_rust::LANGUAGE.into()).is_err() { return; }
-        if let Some(tree) = p.parse(code, None) {
-            let table = build_symbol_table(code, &tree, Path::new("f.rs"));
-            assert!(table.symbols.iter().any(|s| s.name == "hello"), "should find hello");
-            assert!(table.symbols.iter().any(|s| s.name == "main"), "should find main");
-            let hello = table.symbols.iter().find(|s| s.name == "hello").unwrap();
-            assert_eq!(hello.refs.len(), 1, "hello should be called once");
-        }
+        p.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        let tree = p.parse(code, None).unwrap();
+        let table = build_symbol_table(code, &tree, Path::new("f.rs"));
+        assert!(table.symbols.iter().any(|s| s.name == "hello"), "should find hello");
+        assert!(table.symbols.iter().any(|s| s.name == "main"), "should find main");
+        let hello = table.symbols.iter().find(|s| s.name == "hello").unwrap();
+        assert_eq!(hello.refs.len(), 1, "hello should be called once");
     }
 
     #[test]
     fn test_walk_all_terminates() {
         let code = "fn a() { fn b() { fn c() {} } }";
         let mut p = tree_sitter::Parser::new();
-        if p.set_language(&tree_sitter_rust::LANGUAGE.into()).is_err() { return; }
-        if let Some(tree) = p.parse(code, None) {
-            let mut count = 0;
-            walk_all(&tree.root_node(), &mut |_| { count += 1; });
-            assert!(count < 500, "walk_all count: {}", count);
-        }
+        p.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        let tree = p.parse(code, None).unwrap();
+        let mut count = 0;
+        walk_all(&tree.root_node(), &mut |_| { count += 1; });
+        assert!(count < 500, "walk_all count: {}", count);
+    }
+
+    #[test]
+    fn test_full_rename_pipeline() {
+        // 多行: parse → build_symbol_table → rename_symbol 完整链路
+        let code = "fn greet() {}\nfn run() {\n  greet();\n  greet();\n}";
+        let mut p = tree_sitter::Parser::new();
+        p.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        let tree = p.parse(code, None).unwrap();
+        let table = build_symbol_table(code, &tree, Path::new("lib.rs"));
+        let replacements = rename_symbol(&table, "greet", "hi");
+        assert_eq!(replacements.len(), 3, "1 definition + 2 calls = 3 replacements");
+        // greet def at L1, calls at L3 and L4
+        assert!(replacements.contains_key("lib.rs:1"), "should have definition");
+        assert!(replacements.contains_key("lib.rs:3"), "should have call 1");
+        assert!(replacements.contains_key("lib.rs:4"), "should have call 2");
     }
 }
 
