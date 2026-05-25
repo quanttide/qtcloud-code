@@ -37,8 +37,6 @@ enum Commands {
     },
     /// 管理 .quanttide/code/contract.yaml 配置
     Contract {
-        /// 目标目录
-        path: String,
         #[command(subcommand)]
         action: ContractAction,
     },
@@ -52,7 +50,11 @@ enum Commands {
 #[derive(Debug, Clone, Subcommand)]
 enum ContractAction {
     /// 创建默认配置文件
-    Init,
+    Init {
+        /// 目标目录（默认当前目录）
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
     /// 列出可用检测规则
     List {
         /// JSON 输出
@@ -60,7 +62,11 @@ enum ContractAction {
         json: bool,
     },
     /// 校验配置文件
-    Validate,
+    Validate {
+        /// 目标目录（默认当前目录）
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -112,10 +118,10 @@ fn main() {
     let result = match cli.command {
         Commands::Review { path, format, rules, status } => run_review(&path, &format, rules, status),
         Commands::ListRules { json } => run_list_rules(json),
-        Commands::Contract { path, action } => match action {
-            ContractAction::Init => run_contract_init(&path),
+        Commands::Contract { action } => match action {
+            ContractAction::Init { path } => run_contract_init(&path),
             ContractAction::List { json } => run_contract_list(json),
-            ContractAction::Validate => run_contract_validate(&path),
+            ContractAction::Validate { path } => run_contract_validate(&path),
         },
         Commands::Refactor { action } => match action {
             RefactorAction::Apply { file, line, dry_run } => {
