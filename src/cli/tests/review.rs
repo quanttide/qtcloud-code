@@ -166,7 +166,7 @@ fn test_refactor_help() {
 }
 
 #[test]
-fn test_refactor_rename_dry_run() {
+fn test_refactor_rename_writes_file() {
     let dir = tempfile::tempdir().unwrap();
     let f = dir.path().join("f.rs");
     std::fs::write(&f, "fn foo() {} fn main() { foo(); }").unwrap();
@@ -181,6 +181,30 @@ fn test_refactor_rename_dry_run() {
         .output()
         .unwrap();
     assert!(output.status.success());
+    let content = std::fs::read_to_string(&f).unwrap();
+    assert!(!content.contains("foo"), "foo should be replaced, but found: {}", content);
+    assert!(content.contains("bar"), "bar should appear after rename: {}", content);
+}
+
+#[test]
+fn test_refactor_rename_dry_run_does_not_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let f = dir.path().join("f.rs");
+    std::fs::write(&f, "fn foo() {} fn main() { foo(); }").unwrap();
+    let output = cli()
+        .arg("refactor")
+        .arg("rename")
+        .arg(f.to_str().unwrap())
+        .arg("--old-name")
+        .arg("foo")
+        .arg("--new-name")
+        .arg("bar")
+        .arg("--dry-run")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let content = std::fs::read_to_string(&f).unwrap();
+    assert!(content.contains("foo"), "dry-run should not modify file: {}", content);
 }
 
 #[test]
