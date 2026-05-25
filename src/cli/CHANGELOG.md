@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.0-rc.4] — 2026-05-25
+
+验证 release-cli 改用 release 事件触发。
+
 ## [0.1.0-rc.3] — 2026-05-25
 
 验证 release-cli 仅在 tag push 触发。
