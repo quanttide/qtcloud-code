@@ -2,15 +2,17 @@
 
 多语言代码静态分析与质量检测 CLI。
 
-**qtcloud-code** 是一个 3R 代码审查 CLI：**review → reflect → refactor**。规则引擎是安全网，LLM 是干活的主力（开发中）。支持 5 种语言，面向可检测、可复现、可自动化。
+纯规则引擎 + tree-sitter AST 分析 + cargo check 集成。**review（已发布）→ reflect（开发中）→ refactor（预览版）**。
 
 ## 安装
 
 ```sh
+# 在 crate 目录下
+cd apps/qtcloud-code/src/cli
 cargo install --path .
 ```
 
-或直接用 Cargo 运行：
+或直接运行：
 
 ```sh
 cargo run -- review <path>
@@ -46,27 +48,28 @@ qtcloud-code contract list --json
 qtcloud-code contract validate
 ```
 
-### 代码变换
+### 代码变换（预览版）
 
 ```sh
 # 应用 patch（默认写入，--dry-run 预览）
 qtcloud-code refactor apply <file> --line <N>
 qtcloud-code refactor apply <file> --line <N> --dry-run
 
-# 重命名符号
+# 重命名符号（仅预览，不写入文件）
 qtcloud-code refactor rename <file> --old-name foo --new-name bar
-qtcloud-code refactor rename <file> --old-name foo --new-name bar --dry-run
 ```
 
 ## 检测规则
 
-| 规则 | 级别 | 引擎 | 说明 |
-|------|------|------|------|
-| `long-function` | MAY/SHOULD/MUST | tree-sitter | 函数体超过 30/50/80 行 |
-| `long-parameter-list` | MAY/SHOULD/MUST | tree-sitter | 参数超过 4/6/9 个 |
-| `rust-wide-unsafe` | MAY/SHOULD/MUST | tree-sitter | Rust unsafe 块超过 3/5/8 条 |
-| `unused-variable` | SHOULD | cargo check | 未使用变量 |
-| `missing-tests` | MUST | 文件映射 | 源文件缺少对应测试 |
+| 规则 | 级别 | 说明 |
+|------|------|------|
+| `long-function` | MAY/SHOULD/MUST | 函数体超过 30/50/80 行 |
+| `long-parameter-list` | MAY/SHOULD/MUST | 参数超过 4/6/9 个 |
+| `rust-wide-unsafe` | MAY/SHOULD/MUST | unsafe 块超过 3/5/8 条 |
+| `unused-variable` | SHOULD | 未使用变量（cargo check） |
+| `missing-tests` | MUST | 源文件缺少对应测试 |
+
+> 当前检测器主要覆盖 Rust 语法节点。Python/Go/Dart/TypeScript 文件能被正确解析，但检测结果由语言通用规则（过长函数、过长参数列表）产出，Rust 专用规则（unsafe 块、cargo check）不适用于其他语言。
 
 ## 配置
 
@@ -87,13 +90,13 @@ code:
 
 ## 支持的语言
 
-| 语言 | 解析器 | 扩展名 |
-|------|--------|--------|
-| Rust | `tree-sitter-rust` | `.rs` |
-| Python | `tree-sitter-python` | `.py` |
-| Go | `tree-sitter-go` | `.go` |
-| Dart | `tree-sitter-dart` | `.dart` |
-| TypeScript | `tree-sitter-typescript` | `.ts`, `.tsx` |
+| 语言 | 解析器 | 扩展名 | 检测器覆盖 |
+|------|--------|--------|-----------|
+| Rust | `tree-sitter-rust` | `.rs` | 全部规则 |
+| Python | `tree-sitter-python` | `.py` | 通用规则 |
+| Go | `tree-sitter-go` | `.go` | 通用规则 |
+| Dart | `tree-sitter-dart` | `.dart` | 通用规则 |
+| TypeScript | `tree-sitter-typescript` | `.ts`, `.tsx` | 通用规则 |
 
 ## 开发
 
@@ -105,28 +108,8 @@ cargo llvm-cov
 # 自举验证
 cargo run -- review .
 
-# 覆盖率基准
+# 覆盖率基准（线覆盖 ≥ 90%）
 cargo llvm-cov test --lcov --output-path lcov.info
-# 线覆盖 ≥ 90%
-```
-
-## 架构
-
-```
-review（规则引擎）
-├── 语法规则：过长函数、unsafe 块、过长参数列表
-├── 编译规则：未使用变量（cargo check）
-├── 项目规则：缺失测试
-└── 依赖图规则：循环依赖/高扇入扇出/孤立模块
-
-reflect（侦探追溯）— 开发中
-├── 程序切片：反向追溯影响语句
-└── 数据流分析：变量赋值链
-
-refactor（代码变换）
-├── apply：dry-run + 写入 + 自动验证
-├── rename：符号表 + 重命名
-└── 安全机制：Patch、操作日志
 ```
 
 ## 许可

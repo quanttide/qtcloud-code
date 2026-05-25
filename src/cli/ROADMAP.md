@@ -2,9 +2,9 @@
 
 ## 定位
 
-3R 代码审查 CLI：**review → reflect → refactor**。
+3R 代码审查 CLI：**review（已发布）→ reflect（开发中）→ refactor（预览版）**。
 
-人机协作：AI（LLM）是初级程序员主力干活，规则引擎是安全网，人类是高级程序员定策略。
+纯规则引擎 + tree-sitter AST 分析 + cargo check。LLM 集成在 ROADMAP 上但尚未实现。
 
 ## P0 — 已完成 ✅
 
@@ -78,6 +78,5 @@ qtcloud-code contract diff        # 对比配置与项目实际状态
 
 ## 非目标
 
-- 不做纯规则引擎的 reflect/refactor（分析、决策、修复由 LLM 做）
-- 无 LLM 时保持当前行为不变（`--llm`、`--mode deep` 均需显式传入）
-- 不承诺 LLM 结果的可复现性（确定性部分由规则引擎保证）
+- 不做全语义级分析（类型推断、数据流分析）
+- LLM 集成前不做纯 LLM 代码审查
