@@ -5,7 +5,7 @@ use std::process;
 use clap::{Parser, Subcommand};
 
 use qtcloud_code_cli::detect::{Detector, Finding};
-use qtcloud_code_cli::lang::LanguageParser;
+use qtcloud_code_cli::parse::LanguageParser;
 
 #[derive(Parser)]
 #[command(name = "qtcloud-code", about = "多语言代码静态分析与质量检测")]
@@ -109,12 +109,12 @@ fn resolve_root(path: &str) -> Result<PathBuf, String> {
 
 fn create_parsers() -> Result<Vec<Box<dyn LanguageParser>>, String> {
     Ok(vec![
-        Box::new(qtcloud_code_cli::lang::rust::RustParser::new()?),
-        Box::new(qtcloud_code_cli::lang::python::PythonParser::new()?),
-        Box::new(qtcloud_code_cli::lang::go::GoParser::new()?),
-        Box::new(qtcloud_code_cli::lang::dart::DartParser::new()?),
-        Box::new(qtcloud_code_cli::lang::typescript::TypeScriptParser::new()?),
-        Box::new(qtcloud_code_cli::lang::typescript::TsxParser::new()?),
+        Box::new(qtcloud_code_cli::parse::rust::RustParser::new()?),
+        Box::new(qtcloud_code_cli::parse::python::PythonParser::new()?),
+        Box::new(qtcloud_code_cli::parse::go::GoParser::new()?),
+        Box::new(qtcloud_code_cli::parse::dart::DartParser::new()?),
+        Box::new(qtcloud_code_cli::parse::typescript::TypeScriptParser::new()?),
+        Box::new(qtcloud_code_cli::parse::typescript::TsxParser::new()?),
     ])
 }
 

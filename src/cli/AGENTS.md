@@ -71,7 +71,7 @@ src/
 ├── main.rs          # CLI 入口 (clap)
 ├── lib.rs           # 公开模块
 ├── config.rs        # .quanttide/code/contract.yaml 配置加载
-├── lang/            # 语言解析器抽象与实现
+├── parse/           # 语言解析器
 │   ├── mod.rs       # LanguageParser trait + ParseResult
 │   ├── rust.rs      # RustParser
 │   ├── python.rs    # PythonParser
