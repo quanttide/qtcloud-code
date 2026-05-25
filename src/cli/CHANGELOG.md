@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.0-rc.5] — 2026-05-25
+
+验证 build→release / release→build 触发链。
+
 ## [0.1.0-rc.4] — 2026-05-25
 
 验证 release-cli 改用 release 事件触发。
