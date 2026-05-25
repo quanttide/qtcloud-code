@@ -156,3 +156,30 @@ fn test_review_unknown_format_defaults_to_terminal() {
         .unwrap();
     assert!(output.status.success());
 }
+
+#[test]
+fn test_refactor_help() {
+    let output = cli().arg("refactor").arg("--help").output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("apply"));
+    assert!(stdout.contains("rename"));
+}
+
+#[test]
+fn test_refactor_rename_dry_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let f = dir.path().join("f.rs");
+    std::fs::write(&f, "fn foo() {} fn main() { foo(); }").unwrap();
+    let output = cli()
+        .arg("refactor")
+        .arg("rename")
+        .arg(f.to_str().unwrap())
+        .arg("--old-name")
+        .arg("foo")
+        .arg("--new-name")
+        .arg("bar")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}
