@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0] — 2026-05-25
+
+首个正式版本。
+
+- 5 语言解析：Rust / Python / Go / Dart / TypeScript (TSX)
+- 5 检测器：过长函数、unsafe 块、过长参数列表、未使用变量、缺失测试
+- 配置：`.quanttide/code/contract.yaml` + `--rules` 过滤
+- 发布到 crates.io (v0.1.0)
+
 ## [0.1.0-rc.6] — 2026-05-25
 
 修复 license 格式 `Apache 2.0` → `Apache-2.0`。
