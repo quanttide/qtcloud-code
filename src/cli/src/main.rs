@@ -145,8 +145,8 @@ fn write_output(format: &str, findings: &[Finding]) -> Result<(), String> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     match format {
-        "json" => qtcloud_code_cli::report::write_json(&mut handle, findings),
-        _ => qtcloud_code_cli::report::write_terminal(&mut handle, findings),
+        "json" => qtcloud_code_cli::output::write_json(&mut handle, findings),
+        _ => qtcloud_code_cli::output::write_terminal(&mut handle, findings),
     }
 }
 
@@ -159,7 +159,7 @@ fn write_status_file(root: &Path, findings: &[Finding]) -> Result<(), String> {
     let file = std::fs::File::create(&status_path)
         .map_err(|e| format!("无法创建 STATUS.md: {}", e))?;
     let mut writer = std::io::BufWriter::new(file);
-    qtcloud_code_cli::report::write_status(&mut writer, findings)?;
+    qtcloud_code_cli::output::write_status(&mut writer, findings)?;
     println!("\nSTATUS.md 已写入: {}", status_path.display());
     Ok(())
 }

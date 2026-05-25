@@ -85,6 +85,5 @@ src/
 │   ├── unsafe_block.rs
 │   ├── unused_variable.rs   # 项目级：cargo check 解析
 │   └── missing_tests.rs      # 项目级：源文件/测试映射
-└── report/          # 输出格式
-    └── mod.rs       # JSON / Terminal / STATUS.md
+├── output.rs        # 输出格式：JSON / Terminal / STATUS.md
 ```
