@@ -183,3 +183,57 @@ fn test_refactor_rename_dry_run() {
         .unwrap();
     assert!(output.status.success());
 }
+
+#[test]
+fn test_contract_help() {
+    let output = cli().arg("contract").arg("--help").output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("init"));
+    assert!(stdout.contains("list"));
+    assert!(stdout.contains("validate"));
+}
+
+#[test]
+fn test_contract_init_and_validate() {
+    let dir = tempfile::tempdir().unwrap();
+    // init
+    let output = cli()
+        .arg("contract")
+        .arg("init")
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    // validate
+    let output = cli()
+        .arg("contract")
+        .arg("validate")
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}
+
+#[test]
+fn test_contract_list_json() {
+    let output = cli()
+        .arg("contract")
+        .arg("list")
+        .arg("--json")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}
+
+#[test]
+fn test_list_rules_json() {
+    let output = cli()
+        .arg("list-rules")
+        .arg("--json")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}
