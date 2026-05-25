@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::time::SystemTime;
 
-use crate::detect::{Finding, Severity};
+use crate::detector::{Finding, Severity};
 
 macro_rules! writeln_err {
     ($dst:expr $(, $arg:expr)* $(,)?) => {

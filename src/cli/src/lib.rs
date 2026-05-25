@@ -1,4 +1,4 @@
 pub mod config;
-pub mod parse;
-pub mod detect;
+pub mod parser;
+pub mod detector;
 pub mod output;

@@ -71,14 +71,14 @@ src/
 ├── main.rs          # CLI 入口 (clap)
 ├── lib.rs           # 公开模块
 ├── config.rs        # .quanttide/code/contract.yaml 配置加载
-├── parse/           # 语言解析器
+├── parser/          # 语言解析器
 │   ├── mod.rs       # LanguageParser trait + ParseResult
 │   ├── rust.rs      # RustParser
 │   ├── python.rs    # PythonParser
 │   ├── go.rs        # GoParser
 │   ├── dart.rs      # DartParser
 │   └── typescript.rs # TypeScriptParser + TsxParser
-├── detect/          # 检测器
+├── detector/        # 检测器
 │   ├── mod.rs       # Detector trait + Finding + walk_tree
 │   ├── long_function.rs
 │   ├── long_parameter_list.rs

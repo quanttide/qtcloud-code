@@ -4,8 +4,8 @@ use std::process;
 
 use clap::{Parser, Subcommand};
 
-use qtcloud_code_cli::detect::{Detector, Finding};
-use qtcloud_code_cli::parse::LanguageParser;
+use qtcloud_code_cli::detector::{Detector, Finding};
+use qtcloud_code_cli::parser::LanguageParser;
 
 #[derive(Parser)]
 #[command(name = "qtcloud-code", about = "多语言代码静态分析与质量检测")]
@@ -35,16 +35,16 @@ enum Commands {
 
 fn list_detectors() -> Vec<Box<dyn Detector>> {
     vec![
-        Box::new(qtcloud_code_cli::detect::unsafe_block::UnsafeBlockDetector),
-        Box::new(qtcloud_code_cli::detect::long_function::LongFunctionDetector),
-        Box::new(qtcloud_code_cli::detect::long_parameter_list::LongParameterListDetector),
+        Box::new(qtcloud_code_cli::detector::unsafe_block::UnsafeBlockDetector),
+        Box::new(qtcloud_code_cli::detector::long_function::LongFunctionDetector),
+        Box::new(qtcloud_code_cli::detector::long_parameter_list::LongParameterListDetector),
     ]
 }
 
 fn all_rule_ids() -> Vec<&'static str> {
     let mut ids: Vec<&str> = list_detectors().iter().map(|d| d.rule_id()).collect();
-    ids.push(qtcloud_code_cli::detect::unused_variable::RULE_ID);
-    ids.push(qtcloud_code_cli::detect::missing_tests::RULE_ID);
+    ids.push(qtcloud_code_cli::detector::unused_variable::RULE_ID);
+    ids.push(qtcloud_code_cli::detector::missing_tests::RULE_ID);
     ids
 }
 
@@ -78,15 +78,15 @@ fn run_review(path: &str, format: &str, cli_rules: Option<Vec<String>>, write_st
         scan_file(&entry, &mut parsers, &detectors, &mut all_findings);
     }
 
-    if enabled_rules.contains(&qtcloud_code_cli::detect::missing_tests::RULE_ID.to_string()) {
+    if enabled_rules.contains(&qtcloud_code_cli::detector::missing_tests::RULE_ID.to_string()) {
         let project_root = find_project_root(&root).unwrap_or_else(|| root.clone());
-        let test_findings = qtcloud_code_cli::detect::missing_tests::check_missing_tests(&project_root, &source_files, &config);
+        let test_findings = qtcloud_code_cli::detector::missing_tests::check_missing_tests(&project_root, &source_files, &config);
         all_findings.extend(test_findings);
     }
 
     if let Some(project_root) = find_project_root(&root) {
         let compiler_findings =
-            qtcloud_code_cli::detect::unused_variable::check_compiler(&project_root, &enabled_rules)?;
+            qtcloud_code_cli::detector::unused_variable::check_compiler(&project_root, &enabled_rules)?;
         all_findings.extend(compiler_findings);
     }
 
@@ -109,12 +109,12 @@ fn resolve_root(path: &str) -> Result<PathBuf, String> {
 
 fn create_parsers() -> Result<Vec<Box<dyn LanguageParser>>, String> {
     Ok(vec![
-        Box::new(qtcloud_code_cli::parse::rust::RustParser::new()?),
-        Box::new(qtcloud_code_cli::parse::python::PythonParser::new()?),
-        Box::new(qtcloud_code_cli::parse::go::GoParser::new()?),
-        Box::new(qtcloud_code_cli::parse::dart::DartParser::new()?),
-        Box::new(qtcloud_code_cli::parse::typescript::TypeScriptParser::new()?),
-        Box::new(qtcloud_code_cli::parse::typescript::TsxParser::new()?),
+        Box::new(qtcloud_code_cli::parser::rust::RustParser::new()?),
+        Box::new(qtcloud_code_cli::parser::python::PythonParser::new()?),
+        Box::new(qtcloud_code_cli::parser::go::GoParser::new()?),
+        Box::new(qtcloud_code_cli::parser::dart::DartParser::new()?),
+        Box::new(qtcloud_code_cli::parser::typescript::TypeScriptParser::new()?),
+        Box::new(qtcloud_code_cli::parser::typescript::TsxParser::new()?),
     ])
 }
 
@@ -181,7 +181,7 @@ fn run_list_rules() -> Result<(), String> {
         println!("  {} — {}", d.rule_id(), d.description());
     }
     println!("\n可用检测规则（编译器级）:");
-    println!("  {} — {}", qtcloud_code_cli::detect::unused_variable::RULE_ID, qtcloud_code_cli::detect::unused_variable::DESCRIPTION);
-    println!("  {} — {}", qtcloud_code_cli::detect::missing_tests::RULE_ID, qtcloud_code_cli::detect::missing_tests::DESCRIPTION);
+    println!("  {} — {}", qtcloud_code_cli::detector::unused_variable::RULE_ID, qtcloud_code_cli::detector::unused_variable::DESCRIPTION);
+    println!("  {} — {}", qtcloud_code_cli::detector::missing_tests::RULE_ID, qtcloud_code_cli::detector::missing_tests::DESCRIPTION);
     Ok(())
 }
