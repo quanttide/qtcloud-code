@@ -1,59 +1,49 @@
-# reflect — 理解层
+# reflect — 根因层
 
 ## 职责
 
-对 review 输出的所有 finding 做全局元分析，生成项目级健康报告。纯 LLM 驱动，无规则引擎参与。
+像侦探一样追溯根因。给定 review 的证据（finding），反复追问"为什么"，直到找到源头。
 
 ## 与 review 的区别
 
 ```
-review:  每个 finding 是孤立的
-         只看"这段代码有什么问题"
+review:   发现"有什么问题"
+          "这个 unsafe 块有 9 条语句"
 
-reflect: 把全部 finding 放到一起看
-         看"这个项目整体健康度如何"
+reflect:  追问"为什么会这样"
+          "因为三个模块各自实现了同样的指针操作，
+           应该统一抽象——这不是 unsafe 的问题，
+           是缺乏共享工具函数的问题"
 ```
 
-## 执行流程
+## 工作方式
+
+LLM 拿到全部 finding 后，不是聚合统计，而是做侦探推理：
 
 ```
-review 输出（全部 finding）
+证据收集
   ↓
-LLM 跨 finding 分析
-  ├── 按类别聚合（安全、性能、可维护性）
-  ├── 按模块分布
-  ├── 趋势判断（新增 vs 存量）
-  └── 根因追溯
+根因追溯（追问 3~5 轮 why）
   ↓
-reflect 输出（项目级报告）
+推理链输出（让人类看到思考过程）
+  ↓
+行动计划（不是 patch，是指出"从哪改起"）
 ```
 
-## LLM 分析维度
-
-### 聚合
-
-| 维度 | 做法 |
-|------|------|
-| 类别 | 安全类、性能类、可维护性类各多少 |
-| 分布 | 哪个模块问题最多、哪个类别最集中 |
-| 运营 | 新增 vs 存量、重复出现同一模式 |
-
-### 根因
-
-LLM 跨文件寻找模式：
-```
-"新人在 controller/、service/、repository/ 三层
-都写了同样的 unsafe 指针模式——建议统一封装一个 safe 抽象层"
-```
-
-### 优先级
-
-在 review 的单个 finding 优先级之上，给出全局排序：
+## 推理链示例
 
 ```
-P0  内存安全（3 个 MUST，集中在 data 层）
-P1  重复代码（5 个模块各有 60+ 行函数）
-P2  缺失测试（按模块重要性排序）
+finding: data/ 层 3 个 unsafe 块、service/ 层 2 个、api/ 层 1 个
+
+why: 都在做裸指针操作
+  why: 因为没有一个安全的指针抽象
+    why: 因为引入外部库需要评审，团队选择自己写
+      结论: 根因是缺乏共享工具库，不是 unsafe 本身
+
+行动:
+  1. 统一封装 SafePointer 抽象（data 层负责人）
+  2. 替换三层的裸指针操作（估计 2 人日）
+  3. 建立共享工具库评审流程（长期）
 ```
 
 ## 输出格式
@@ -61,31 +51,18 @@ P2  缺失测试（按模块重要性排序）
 ```json
 {
   "mode": "reflect",
-  "summary": {
-    "total": 47,
-    "must": 3,
-    "should": 15,
-    "may": 29,
-    "semantic": 2
-  },
-  "by_category": {
-    "security": {"count": 3, "priority": "P0"},
-    "maintainability": {"count": 25, "priority": "P1"},
-    "correctness": {"count": 5, "priority": "P2"}
-  },
-  "by_module": [
-    {"path": "src/data/", "findings": 12, "top_issue": "unsafe 模式重复"},
-    {"path": "src/api/", "findings": 8, "top_issue": "过长函数"}
-  ],
-  "trend": {
-    "new_this_cycle": 5,
-    "resolved": 12,
-    "carried_over": 30
-  },
-  "recommendations": [
-    "P0 优先处理 data 层的 3 个 unsafe——统一封装 SafePointer 抽象",
-    "P1 在 controller/service/repository 三层提取共享工具函数",
-    "P2 为 data 层模块补充单元测试"
+  "investigations": [
+    {
+      "evidence": ["data/pointer.rs:12", "data/pointer.rs:45", "service/buffer.rs:33"],
+      "finding_ids": ["wide-unsafe@data/pointer.rs:12", "wide-unsafe@data/pointer.rs:45", "wide-unsafe@service/buffer.rs:33"],
+      "root_cause": "缺乏共享的安全指针抽象",
+      "reasoning_chain": [
+        "三个模块各自实现了裸指针操作",
+        "因为没有一个统一的 safe 封装",
+        "因为团队选择内实现而非引入外部库",
+      ],
+      "action": "提取 SafePointer 抽象，替换三处实现"
+    }
   ]
 }
 ```
@@ -93,7 +70,8 @@ P2  缺失测试（按模块重要性排序）
 ## 命令行
 
 ```sh
-review . --reflect              # review + reflect
-review . --reflect --llm        # 同上（当前必须，reflect 纯 LLM 驱动）
-review . --mode deep            # review + reflect + refactor
+review . --reflect           # review + reflect（根因分析）
+review . --reflect --llm     # 同上（当前必须，reflect 纯 LLM）
 ```
+
+reflect 无 lint 模式——没有 LLM 时 reflect 不运行。
