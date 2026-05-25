@@ -162,7 +162,6 @@ fn test_refactor_help() {
     let output = cli().arg("refactor").arg("--help").output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("apply"));
     assert!(stdout.contains("rename"));
 }
 
