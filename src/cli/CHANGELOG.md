@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.0-rc.6] — 2026-05-25
+
+修复 license 格式 `Apache 2.0` → `Apache-2.0`。
+
 ## [0.1.0-rc.5] — 2026-05-25
 
 验证 build→release / release→build 触发链。
