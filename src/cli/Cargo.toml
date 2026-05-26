@@ -28,5 +28,9 @@ tree-sitter-typescript = "0.23"
 serde_yaml = "0.9"
 walkdir = "2"
 
+[[test]]
+name = "reflect"
+path = "tests/reflect.rs"
+
 [dev-dependencies]
 tempfile = "3"

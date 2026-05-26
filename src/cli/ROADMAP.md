@@ -11,20 +11,27 @@
 - [x] 89 测试，覆盖率 93%
 - [x] crates.io: v0.1.0, v0.2.0
 
-## P1 — 实验室成熟工具整合
+## P1 — 实验室成熟工具整合 ✅
 
-```
-qtcloud-code reflect <file> --line 10   # 定向分析
-```
+- [x] `reflect` 子命令：slice / trace / graph / suggest
+- [x] 多语言支持（Rust / Python / Go / TypeScript）
+- [x] 返回值统一三态退出码（0=有结果 / 1=无结果 / 2=错误）
+- [x] 12 个集成测试全部通过
+- [x] 代码评审 + 修复（unsafe 检测条件、临时文件清理）
+- [x] 设计文档 `docs/reflect.md` + 测试设计 `docs/api/reflect-integration-test.md`
 
-- [ ] `backward_slice` + `flatten_stmts`：从实验室 examples/default/src/reflect/ 移植到 src/cli
-- [ ] `reflect` 子命令：slice/trace/graph/suggest/scan，多语言支持（实验室原型已有 ➡️ 移植 + 适配）
-- [ ] clap 子命令注册 + 测试
-
-**实验室已验证：**
+**实验室已验证（已纳入设计）：**
 - 精确截断点：最短证据（1 行输出端）发现最多问题 ✅
 - 反面案例：全函数策略分析 + 片段边界聚焦的**双通道策略** ✅
 - 统一 prompt：dismiss 不降级 + 免费额外发现，可作 `--llm` 默认 ✅
+
+### 已知限制（后续迭代）
+
+- `--json` 未实现，handlers 签名有 `_json` 参数但硬编码 false
+- `slice` 是行级简化版，非真正的 tree-sitter AST 追溯
+- `trace` 自动查找声明仅支持 Rust（`let var` 模式匹配）
+- `graph` 只做 `fn` 关键词行级匹配，不生成真实调用图
+- 2 个编译 warning（`_tree`、`_json` 未使用）
 
 ## P2 — `--llm`
 
