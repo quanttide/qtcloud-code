@@ -204,8 +204,8 @@ fn test_slice_python() {
         .arg(fx.path.to_str().unwrap()).arg("9")
         .output().unwrap();
     let code = output.status.code();
-    assert!(code == Some(0) || code == Some(1),
-        "expected exit 0 or 1 for Python slice, got: {:?}", code);
+    assert_eq!(code, Some(0),
+        "expected exit 0 for Python slice, got: {:?}", code);
 }
 
 #[test]
@@ -225,6 +225,6 @@ function processOrder(input: string): string {
         .arg(fx.path.to_str().unwrap())
         .output().unwrap();
     let code = output.status.code();
-    assert!(code == Some(0) || code == Some(1),
-        "expected exit 0 or 1 for TS graph, got: {:?}", code);
+    assert_eq!(code, Some(0),
+        "expected exit 0 for TS graph, got: {:?}", code);
 }

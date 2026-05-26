@@ -522,14 +522,25 @@ fn run_reflect_graph(file: String) -> Result<bool, String> {
         .parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    // Simple function finder (line-based)
+    // Multi-language function finder (line-based)
     let mut functions: Vec<(usize, String)> = Vec::new();
     for (i, src_line) in source.lines().enumerate() {
         let n = i + 1;
         let t = src_line.trim();
-        if t.starts_with("fn ") && t.contains('(') && t.contains(')') {
+        let is_fn_sig = match ext {
+            "rs" => t.starts_with("fn ") && t.contains('(') && t.contains(')'),
+            "py" => t.starts_with("def ") && t.contains('(') && t.contains(')'),
+            "go" => t.starts_with("func ") && t.contains('(') && t.contains(')'),
+            _ => (t.starts_with("fn ") || t.starts_with("function ")) && t.contains('(') && t.contains(')'),
+        };
+        if is_fn_sig {
             let name = t.split('(').next()
-                .and_then(|s| s.strip_prefix("fn "))
+                .and_then(|s| {
+                    s.strip_prefix("fn ")
+                        .or_else(|| s.strip_prefix("def "))
+                        .or_else(|| s.strip_prefix("func "))
+                        .or_else(|| s.strip_prefix("function "))
+                })
                 .map(|s| s.trim().to_string())
                 .unwrap_or_default();
             if !name.is_empty() {
