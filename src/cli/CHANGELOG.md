@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1] — 2026-05-26
+
+- `reflect` 子命令：slice / trace / graph / suggest，多语言支持（Rust / Python / Go / TypeScript）
+- 12 个 reflect 集成测试
+- P1.5 完善：移除 `_json` 死参数，消除编译 warning，修复 unsafe 检测条件
+- 新增 STATUS.md 和 TODO.md 项目文档
+
 ## [0.2.0] — 2026-05-26
 
 - `contract` 命令：init / list / validate / list --json

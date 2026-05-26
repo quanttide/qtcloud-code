@@ -157,10 +157,10 @@ fn main() {
             }
         },
         Commands::Reflect { action } => match action {
-            ReflectAction::Slice { file, line } => run_reflect_slice(file, line, false),
-            ReflectAction::Trace { file, line, var } => run_reflect_trace(file, line, var, false),
-            ReflectAction::Graph { file } => run_reflect_graph(file, false),
-            ReflectAction::Suggest { file } => run_reflect_suggest(file, false),
+            ReflectAction::Slice { file, line } => run_reflect_slice(file, line),
+            ReflectAction::Trace { file, line, var } => run_reflect_trace(file, line, var),
+            ReflectAction::Graph { file } => run_reflect_graph(file),
+            ReflectAction::Suggest { file } => run_reflect_suggest(file),
         },
     };
 
@@ -372,7 +372,7 @@ fn run_refactor_rename(file: String, old_name: String, new_name: String, dry_run
 
 // ============ reflect ============
 
-fn run_reflect_slice(file: String, line: usize, _json: bool) -> Result<bool, String> {
+fn run_reflect_slice(file: String, line: usize) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
@@ -381,7 +381,6 @@ fn run_reflect_slice(file: String, line: usize, _json: bool) -> Result<bool, Str
     let tree = parser.parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    // Inline backward slice logic (simplified for now)
     let root = tree.root_node();
     let root_line = root.start_position().row + 1;
     if line < root_line || line > 9999 {
@@ -389,15 +388,48 @@ fn run_reflect_slice(file: String, line: usize, _json: bool) -> Result<bool, Str
         return Ok(false);
     }
 
-    let mut entries: Vec<(usize, String)> = Vec::new();
-    for (i, src_line) in source.lines().enumerate() {
-        if i + 1 <= line && !src_line.trim().is_empty() && !src_line.trim().starts_with("//") {
-            let n = i + 1;
-            entries.push((n, src_line.trim().to_string()));
+    // AST-based function scope detection: find the function containing target line
+    let lang_name = ext;
+    let mut fn_start: usize = 1;
+    let mut _fn_end: usize = source.lines().count();
+    let cursor = &mut tree.walk();
+    'search: loop {
+        let node = cursor.node();
+        let kind = node.kind();
+        let is_function = match lang_name {
+            "rs" => kind == "function_item",
+            "py" => kind == "function_definition",
+            "go" => kind == "function_declaration",
+            _ => kind == "function_declaration" || kind == "function",
+        };
+        if is_function {
+            let s = node.start_position().row + 1;
+            let e = node.end_position().row + 1;
+            if s <= line && line <= e {
+                fn_start = s;
+                _fn_end = e;
+                break 'search;
+            }
+        }
+        if !cursor.goto_first_child() {
+            loop {
+                if cursor.goto_next_sibling() { break; }
+                if !cursor.goto_parent() { break 'search; }
+            }
         }
     }
-    entries.reverse();
-    entries.truncate(10); // limit depth
+
+    // Collect statements from fn_start to target line, reversed, top 10
+    let mut entries: Vec<(usize, String)> = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+    for i in (fn_start.saturating_sub(1)..line.min(lines.len())).rev() {
+        let t = lines[i].trim();
+        if !t.is_empty() && !t.starts_with("//") && !t.starts_with("#") {
+            let n = i + 1;
+            entries.push((n, t.to_string()));
+            if entries.len() >= 10 { break; }
+        }
+    }
 
     if entries.is_empty() {
         eprintln!("未找到追溯结果（行 {} 可能在函数体外或无法解析）", line);
@@ -411,13 +443,13 @@ fn run_reflect_slice(file: String, line: usize, _json: bool) -> Result<bool, Str
     Ok(true)
 }
 
-fn run_reflect_trace(file: String, line: Option<usize>, var: String, _json: bool) -> Result<bool, String> {
+fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut parser = make_parser(ext)?;
-    let tree = parser.parse(&source, None)
+    let _tree = parser.parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
     // Simple variable declaration finder (line-based)
@@ -472,13 +504,13 @@ fn run_reflect_trace(file: String, line: Option<usize>, var: String, _json: bool
     Ok(true)
 }
 
-fn run_reflect_graph(file: String, _json: bool) -> Result<bool, String> {
+fn run_reflect_graph(file: String) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut parser = make_parser(ext)?;
-    let tree = parser
+    let _tree = parser
         .parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
@@ -510,7 +542,7 @@ fn run_reflect_graph(file: String, _json: bool) -> Result<bool, String> {
     Ok(true)
 }
 
-fn run_reflect_suggest(file: String, _json: bool) -> Result<bool, String> {
+fn run_reflect_suggest(file: String) -> Result<bool, String> {
     let source = std::fs::read_to_string(&file)
         .map_err(|e| format!("读取文件失败: {}", e))?;
     let lines: Vec<&str> = source.lines().collect();
@@ -523,7 +555,7 @@ fn run_reflect_suggest(file: String, _json: bool) -> Result<bool, String> {
             suggestions.push((n, "return", t));
         } else if t.contains("panic!(") || t.contains("unreachable!(") || t.contains("todo!(") {
             suggestions.push((n, "panic", t));
-        } else if t.contains("unsafe") {
+        } else if t.contains("unsafe") && !t.starts_with("unsafe fn") && !t.starts_with("unsafe trait") && !t.starts_with("unsafe impl") {
             suggestions.push((n, "unsafe", t));
         } else if (t.contains("as ") && t.contains("f64")) || (t.contains("as ") && t.contains("i32")) {
             suggestions.push((n, "cast", t));
