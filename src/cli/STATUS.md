@@ -18,7 +18,7 @@
 | 里程碑 | 状态 | 说明 |
 |--------|------|------|
 | P0 — 基础检测 | ✅ 已发布 | 5 解析器 + 5 检测器 + 配置 + 发布流水线 |
-| P1 — reflect 定向分析 | ✅ 代码完成 | slice/trace/graph/suggest：12 测试全部通过，待提交 |
+| P1.5 — reflect 完善 | ✅ 已推送 | AST 追溯、跨语言 trace、parser 复用、warning 消除 |
 | P2 — `--llm` | ⏳ 未开始 | LLM 客户端 + 统一 prompt + 验证层 |
 
 ## reflect 子命令状态

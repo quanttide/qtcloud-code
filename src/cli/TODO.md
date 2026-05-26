@@ -1,17 +1,12 @@
 # TODO — qtcloud-code-cli
 
-> 当前版本: `cli/v0.2.0` · P0 已发布 · P1 代码完成 · P2 未开始
+> 当前版本: `cli/v0.2.0` · P0 已发布 · P1 已提交+推送
 
-## 🔴 紧急（阻塞当前迭代）
+## 🟢 已完成（当前迭代）
 
-- [ ] **提交推送 reflect 变更** — Cargo.toml / main.rs / tests/reflect.rs / STATUS.md / TODO.md / ROADMAP.md
-
-## 🟡 P1.5 — reflect 完善（当前迭代）
-
-- [ ] **消除编译 warning** — `_tree`（graph handler 未使用解析树）、`_json`（未实现 JSON 输出）
-- [ ] **移除 `_json` 死参数** — 各 handler 签名中 `_json: bool` 未使用，clap 也未定义 `--json` flag。要么实现，要么移除
-- [ ] **修复 `unsafe` 检测** — `run_reflect_suggest` 中 `t.contains("unsafe")` 匹配范围过大，可能误报 `unsafe fn`、`unsafe trait` 等声明。至少排除 `unsafe fn` / `unsafe trait` / `unsafe impl` 前缀
-- [ ] **slice 改用 AST 追溯** — 当前是行级倒序收集，非真正的 tree-sitter 回溯。至少做到按函数范围限定追溯范围，而非从文件开头截取
+- `_json` 死参数移除 ✅ · 编译 warning 消除 ✅ · unsafe 检测条件修复 ✅
+- slice AST 函数作用域追溯 ✅ · make_parser 复用（refactor rename） ✅
+- trace 跨语言声明查找（Python/Go） ✅ · CHANGELOG v0.2.1 记录 ✅
 
 ## 🔵 P2 — `--llm` 集成（规划中）
 
@@ -23,15 +18,7 @@
 
 ## ⚪ 技术债务
 
-- [ ] **reflect handler 提取** — 4 个 handler 目前 inline 在 `main.rs`，应提取到独立模块 `src/reflect/`
-- [ ] **`make_parser` 与 `create_parsers` 合并** — 两套不同的 parser 创建方式，应统一
-- [ ] **`trace` 自动查找声明跨语言** — 当前仅 Rust `let var` 模式匹配，Python/Go/TS 不生效
-- [ ] **`graph` 生成真实调用图** — 当前只匹配 `fn` 行，调用/被调用数硬编码 0
+- [ ] **`make_parser` 与 `create_parsers` 合并** — 两套不同的 parser 创建方式，`create_parsers` 使用 `LanguageParser` trait + `ParseResult`，`make_parser` 返回裸 `tree_sitter::Parser`。虽然类型不同，但可提取公共 `resolve_language` 函数共享 ext→language 映射
+- [ ] **`graph` 生成真实调用图** — 当前只匹配 `fn` 行，调用/被调用数硬编码 0。可遍历 AST 搜索函数调用
 - [ ] **test_graph_typescript / test_slice_python 断言过松** — 同时接受 exit 0 和 1，应确定正确值后收紧
-- [ ] **CHANGELOG.md 记录** — 添加 `reflect` 子命令和 12 测试的变更记录
-
-## 📋 提交清单（当前）
-
-- [ ] `git add src/cli/Cargo.toml src/cli/src/main.rs src/cli/tests/reflect.rs src/cli/ROADMAP.md src/cli/STATUS.md src/cli/TODO.md`
-- [ ] `git commit -m "feat: add reflect subcommand with slice/trace/graph/suggest + 12 tests"`
-- [ ] `git push`
+- [ ] **reflect handler 提取** — 4 个 handler 目前 inline 在 `main.rs`，应提取到独立模块 `src/reflect/`

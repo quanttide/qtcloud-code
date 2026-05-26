@@ -328,9 +328,7 @@ fn run_refactor_rename(file: String, old_name: String, new_name: String, dry_run
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("无法读取文件 {}: {}", file, e))?;
-    let mut parser = tree_sitter::Parser::new();
-    parser.set_language(&tree_sitter_rust::LANGUAGE.into())
-        .map_err(|_| "设置 Rust 语言失败".to_string())?;
+    let mut parser = make_parser("rs")?;
     let tree = parser.parse(&source, None).ok_or("解析失败".to_string())?;
     let table = qtcloud_code_cli::refactor::rename::build_symbol_table(&source, &tree, path);
     let replacements = qtcloud_code_cli::refactor::rename::rename_symbol(&table, &old_name, &new_name);
@@ -452,7 +450,7 @@ fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<b
     let _tree = parser.parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    // Simple variable declaration finder (line-based)
+    // Multi-language variable declaration finder
     let actual_line = match line {
         Some(l) => l,
         None => {
@@ -460,9 +458,19 @@ fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<b
             for (i, src_line) in source.lines().enumerate() {
                 let n = i + 1;
                 let t = src_line.trim();
-                if t.starts_with(&format!("let {} ", var)) || t.starts_with(&format!("let {}:", var))
-                    || t.starts_with(&format!("let mut {} ", var)) || t.starts_with(&format!("let mut {}:", var))
-                {
+                let is_decl = match ext {
+                    "rs" => t.starts_with(&format!("let {} ", var))
+                        || t.starts_with(&format!("let {}:", var))
+                        || t.starts_with(&format!("let mut {} ", var))
+                        || t.starts_with(&format!("let mut {}:", var)),
+                    "py" => t.starts_with(&format!("{} =", var))
+                        || t.starts_with(&format!("{}:", var)),
+                    "go" => t.starts_with(&format!("var {} ", var))
+                        || t.starts_with(&format!("{} :=", var))
+                        || t.starts_with(&format!("{},", var)),
+                    _ => false, // TS: let/const/var — too name-collision prone for auto-detect
+                };
+                if is_decl {
                     found = Some(n);
                     break;
                 }
