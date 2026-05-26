@@ -44,6 +44,9 @@ pub fn check_missing_tests(project_root: &Path, source_files: &[PathBuf], config
         if has_external_test_file(rel, project_root) {
             continue;
         }
+        if crate::config::should_skip_skeleton_files(config) && is_skeleton_file(file, rel) {
+            continue;
+        }
 
         findings.push(Finding {
             file_path: file.clone(),
@@ -122,6 +125,38 @@ fn has_external_test_file(rel: &Path, project_root: &Path) -> bool {
     };
 
     candidates.iter().any(|p| p.exists())
+}
+
+fn is_skeleton_file(file: &Path, rel: &Path) -> bool {
+    let file_name = rel.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    match file_name {
+        "build.rs" | "__init__.py" => true,
+        "mod.rs" | "lib.rs" => {
+            match std::fs::read_to_string(file) {
+                Ok(content) => is_declaration_only(&content),
+                Err(_) => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+fn is_declaration_only(content: &str) -> bool {
+    for line in content.lines() {
+        let t = line.trim();
+        if t.is_empty() || t.starts_with("//") || t.starts_with('#') || t.starts_with("/*") || t.starts_with("*") {
+            continue;
+        }
+        if t.starts_with("fn ") || t.starts_with("pub fn ")
+            || t.starts_with("struct ") || t.starts_with("pub struct ")
+            || t.starts_with("enum ") || t.starts_with("pub enum ")
+            || t.starts_with("trait ") || t.starts_with("pub trait ")
+            || t.starts_with("impl ") || t.starts_with("pub impl ") || t.starts_with("unsafe impl ")
+        {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -222,6 +257,104 @@ mod tests {
     }
 
     #[test]
+    fn test_is_skeleton_file_build_rs() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("build.rs");
+        std::fs::write(&f, "fn main() { println!(\"cargo:rerun-if-changed=foo\"); }").unwrap();
+        assert!(is_skeleton_file(&f, Path::new("build.rs")));
+    }
+
+    #[test]
+    fn test_is_skeleton_file_init_py() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("__init__.py");
+        std::fs::write(&f, "# _native.so is the build artifact\n").unwrap();
+        assert!(is_skeleton_file(&f, Path::new("__init__.py")));
+    }
+
+    #[test]
+    fn test_is_declaration_only_mod_rs_true() {
+        let content = "pub mod foo;\npub mod bar;\nmod internal;\n";
+        assert!(is_declaration_only(content));
+    }
+
+    #[test]
+    fn test_is_declaration_only_mod_rs_false() {
+        let content = "pub mod foo;\n\npub fn helper() -> bool { true }\n";
+        assert!(!is_declaration_only(content));
+    }
+
+    #[test]
+    fn test_is_declaration_only_lib_rs_true() {
+        let content = "pub mod foo;\npub mod bar;\nuse std::collections::HashMap;\n";
+        assert!(is_declaration_only(content));
+    }
+
+    #[test]
+    fn test_check_missing_tests_skips_build_rs() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("build.rs"), "fn main() {}").unwrap();
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("build.rs")], &None);
+        assert!(findings.is_empty(), "build.rs should be skipped automatically");
+    }
+
+    #[test]
+    fn test_check_missing_tests_skips_init_py() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("__init__.py"), "# comment").unwrap();
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("__init__.py")], &None);
+        assert!(findings.is_empty(), "__init__.py should be skipped automatically");
+    }
+
+    #[test]
+    fn test_check_missing_tests_skips_declaration_only_mod_rs() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\n").unwrap();
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &None);
+        assert!(findings.is_empty(), "declaration-only mod.rs should be skipped");
+    }
+
+    #[test]
+    fn test_check_missing_tests_does_not_skip_mod_rs_with_logic() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\npub fn helper() {}\n").unwrap();
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &None);
+        assert!(!findings.is_empty(), "mod.rs with logic should still be flagged");
+    }
+
+    #[test]
+    fn test_check_missing_tests_does_not_skip_build_rs_when_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("build.rs"), "fn main() {}").unwrap();
+        let config = Some(crate::config::ContractConfig {
+            code: Some(crate::config::CodeConfig {
+                rules: None,
+                exclude: None,
+                skip_test_functions: None,
+                skip_skeleton_files: Some(false),
+            }),
+        });
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("build.rs")], &config);
+        assert!(!findings.is_empty(), "build.rs should NOT be skipped when skip_skeleton_files=false");
+    }
+
+    #[test]
+    fn test_check_missing_tests_does_not_skip_declaration_only_mod_rs_when_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\n").unwrap();
+        let config = Some(crate::config::ContractConfig {
+            code: Some(crate::config::CodeConfig {
+                rules: None,
+                exclude: None,
+                skip_test_functions: None,
+                skip_skeleton_files: Some(false),
+            }),
+        });
+        let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &config);
+        assert!(!findings.is_empty(), "declaration-only mod.rs should NOT be skipped when skip_skeleton_files=false");
+    }
+
+    #[test]
     fn test_check_missing_tests_exclude_config() {
         let dir = tempfile::tempdir().unwrap();
         let src = dir.path().join("src");
@@ -231,6 +364,8 @@ mod tests {
             code: Some(crate::config::CodeConfig {
                 rules: None,
                 exclude: Some(vec!["src/lib.rs".into()]),
+                skip_test_functions: None,
+                skip_skeleton_files: None,
             }),
         });
         let findings = check_missing_tests(dir.path(), &[src.join("lib.rs")], &config);

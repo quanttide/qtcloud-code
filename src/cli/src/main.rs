@@ -91,7 +91,16 @@ enum RefactorAction {
 fn list_detectors() -> Vec<Box<dyn Detector>> {
     vec![
         Box::new(qtcloud_code_cli::detector::unsafe_block::UnsafeBlockDetector),
-        Box::new(qtcloud_code_cli::detector::long_function::LongFunctionDetector),
+        Box::new(qtcloud_code_cli::detector::long_function::LongFunctionDetector::default()),
+        Box::new(qtcloud_code_cli::detector::long_parameter_list::LongParameterListDetector),
+    ]
+}
+
+fn create_detectors(config: &Option<qtcloud_code_cli::config::ContractConfig>) -> Vec<Box<dyn Detector>> {
+    let skip_test = qtcloud_code_cli::config::should_skip_test_functions(config);
+    vec![
+        Box::new(qtcloud_code_cli::detector::unsafe_block::UnsafeBlockDetector),
+        Box::new(qtcloud_code_cli::detector::long_function::LongFunctionDetector { skip_test_functions: skip_test }),
         Box::new(qtcloud_code_cli::detector::long_parameter_list::LongParameterListDetector),
     ]
 }
@@ -130,7 +139,7 @@ fn run_review(path: &str, format: &str, cli_rules: Option<Vec<String>>, write_st
     let root = resolve_root(path)?;
     let config = qtcloud_code_cli::config::load_contract(&root);
     let enabled_rules = qtcloud_code_cli::config::resolve_enabled_rules(&cli_rules, &config, &all_rule_ids());
-    let all_detectors = list_detectors();
+    let all_detectors = create_detectors(&config);
     let detectors: Vec<Box<dyn Detector>> = all_detectors.into_iter().filter(|d| enabled_rules.contains(&d.rule_id().to_string())).collect();
 
     let mut parsers = create_parsers()?;

@@ -12,6 +12,26 @@ pub struct CodeConfig {
     pub rules: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclude: Option<Vec<String>>,
+    /// 跳过测试函数的长函数检测（默认 true）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_test_functions: Option<bool>,
+    /// 跳过骨架文件（mod.rs/lib.rs/build.rs/__init__.py）的缺失测试检测（默认 true）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_skeleton_files: Option<bool>,
+}
+
+pub fn should_skip_test_functions(config: &Option<ContractConfig>) -> bool {
+    config.as_ref()
+        .and_then(|c| c.code.as_ref())
+        .and_then(|c| c.skip_test_functions)
+        .unwrap_or(true)
+}
+
+pub fn should_skip_skeleton_files(config: &Option<ContractConfig>) -> bool {
+    config.as_ref()
+        .and_then(|c| c.code.as_ref())
+        .and_then(|c| c.skip_skeleton_files)
+        .unwrap_or(true)
 }
 
 pub fn is_excluded(file_rel: &str, config: &Option<ContractConfig>) -> bool {
@@ -74,6 +94,8 @@ mod tests {
             code: Some(CodeConfig {
                 rules: Some(vec!["rule-b".to_string()]),
                 exclude: None,
+                skip_test_functions: None,
+                skip_skeleton_files: None,
             }),
         });
         let all = &["rule-a", "rule-b", "rule-c"];
@@ -88,6 +110,8 @@ mod tests {
             code: Some(CodeConfig {
                 rules: Some(vec!["rule-b".to_string()]),
                 exclude: None,
+                skip_test_functions: None,
+                skip_skeleton_files: None,
             }),
         });
         let all = &["rule-a", "rule-b", "rule-c"];
@@ -111,5 +135,43 @@ mod tests {
         let all = &["rule-a"];
         let result = resolve_enabled_rules(&cli, &config, all);
         assert_eq!(result, vec!["rule-a"]);
+    }
+
+    #[test]
+    fn test_should_skip_test_functions_default_true() {
+        let config: Option<ContractConfig> = None;
+        assert!(should_skip_test_functions(&config));
+    }
+
+    #[test]
+    fn test_should_skip_test_functions_from_config() {
+        let config = Some(ContractConfig {
+            code: Some(CodeConfig {
+                rules: None,
+                exclude: None,
+                skip_test_functions: Some(false),
+                skip_skeleton_files: None,
+            }),
+        });
+        assert!(!should_skip_test_functions(&config));
+    }
+
+    #[test]
+    fn test_should_skip_skeleton_files_default_true() {
+        let config: Option<ContractConfig> = None;
+        assert!(should_skip_skeleton_files(&config));
+    }
+
+    #[test]
+    fn test_should_skip_skeleton_files_from_config() {
+        let config = Some(ContractConfig {
+            code: Some(CodeConfig {
+                rules: None,
+                exclude: None,
+                skip_test_functions: None,
+                skip_skeleton_files: Some(false),
+            }),
+        });
+        assert!(!should_skip_skeleton_files(&config));
     }
 }
