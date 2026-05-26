@@ -17,9 +17,14 @@
 qtcloud-code reflect <file> --line 10   # 定向分析
 ```
 
-- [ ] `backward_slice`：从行号追溯变量定义
-- [ ] `flatten_stmts`：展平函数体语句
-- [ ] `reflect` 子命令（定向分析，不运行 review）
+- [ ] `backward_slice` + `flatten_stmts`：从实验室 examples/default/src/reflect/ 移植到 src/cli
+- [ ] `reflect` 子命令：slice/trace/graph/suggest/scan，多语言支持（实验室原型已有 ➡️ 移植 + 适配）
+- [ ] clap 子命令注册 + 测试
+
+**实验室已验证：**
+- 精确截断点：最短证据（1 行输出端）发现最多问题 ✅
+- 反面案例：全函数策略分析 + 片段边界聚焦的**双通道策略** ✅
+- 统一 prompt：dismiss 不降级 + 免费额外发现，可作 `--llm` 默认 ✅
 
 ## P2 — `--llm`
 
@@ -28,8 +33,10 @@ qtcloud-code review . --llm    # 规则引擎 + LLM 分析
 ```
 
 - [ ] LLM 客户端 + `--llm` 标志
-- [ ] LLM 分析 finding（优先级排序、误报标记、自然语言解释）
-- [ ] 置信度标注（证据锚定率计算）
+- [ ] 统一 prompt（dismiss + discover）作为默认 prompt
+- [ ] 规则引擎验证层：LLM 诊断 → 匹配 VerificationRule（实验室 83% 可验证）
+- [ ] 双通道策略：先全函数策略分析，再用可疑行号做片段聚焦
+- [ ] 置信度标注（证据锚定率 + 规则引擎交叉验证）
 
 ## 非目标
 
