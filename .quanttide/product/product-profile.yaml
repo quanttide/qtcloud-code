@@ -1,0 +1,80 @@
+name: qtcloud-code-cli
+description: "多语言代码静态分析与质量检测 CLI"
+version: 0.1.0
+status: active
+
+users:
+  - role: 个人开发者
+    description: 独立开发，一人维护项目
+    usage: 本地 review 自查，提交前扫一遍
+  - role: 团队 / CI
+    description: 多人协作，需统一质量门槛
+    usage: CI pipeline 集成，--status 写报告，contract 共享配置
+
+scenarios:
+  - name: 提交前自查
+    action: qtcloud-code review src/
+    outcome: 扫新增代码，输出过长函数/unsafe 块等问题列表
+
+  - name: CI 门禁
+    action: qtcloud-code review . --status
+    outcome: 扫描全项目，写入 STATUS.md，失败退出码非 0
+
+  - name: 项目初始化质量基线
+    action: qtcloud-code contract init && contract validate
+    outcome: 生成 .quanttide/code/contract.yaml，团队统一规则配置
+
+  - name: 代码审查辅助
+    action: qtcloud-code review --rules long-function
+    outcome: 仅输出指定规则结果，辅助 Code Review 聚焦
+
+  - name: 遗留代码清理
+    action: qtcloud-code review . --format json
+    outcome: JSON 输出，对接自定义脚本或可视化面板
+
+  - name: 批量重命名
+    action: qtcloud-code refactor rename --old-name old --new-name new
+    outcome: 符号表分析，安全重命名（dry-run 预览后写文件）
+
+  - name: 多项目管理
+    action: 不同项目配置不同 contract.yaml
+    outcome: 每个项目独立阈值（如 Rust 项目 30/50/80，JS 项目 20/40/60）
+
+requirements:
+  - need: 客观标准
+    problem: Code Review 靠 reviewer 经验判断太长
+    solution: 三级阈值 MUST/SHOULD/MAY，不依赖主观判断
+
+  - need: 可复现
+    problem: 同一个项目两次 review 结果不同
+    solution: 纯规则引擎 + tree-sitter AST，相同代码相同结果
+
+  - need: 无侵入
+    problem: 不想改项目现有工具链
+    solution: review 只读不写，--status 输出到单独文件
+
+  - need: 可配置
+    problem: 不同团队对长函数标准不同
+    solution: contract.yaml 按项目配置阈值和启用规则
+
+  - need: 增量适用
+    problem: 旧项目到处都是问题，无法一次性修完
+    solution: 三级阈值 —— MAY 可忽略，SHOULD 建议，MUST 阻塞
+
+  - need: 便宜
+    problem: 不想为代码质量工具付费或架设 LLM
+    solution: 纯规则引擎，零外部依赖，cargo install 即用
+
+capabilities:
+  - name: 多语言静态分析
+    description: tree-sitter 解析 + 规则引擎，支持 5 种语言
+  - name: 增量质量检测
+    description: 三级阈值 MUST/SHOULD/MAY，区分阻塞、建议、可选
+  - name: 可配置规则系统
+    description: contract.yaml 按项目配置阈值和启用规则
+  - name: 编译器级检测
+    description: 集成 cargo check，检测未使用变量等编译警告
+  - name: 项目结构检测
+    description: 文件映射分析，检测缺少测试等项目级问题
+  - name: 符号级代码变换
+    description: tree-sitter 符号表分析 + 安全重命名（dry-run 预览）

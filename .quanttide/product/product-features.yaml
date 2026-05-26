@@ -1,0 +1,62 @@
+product: qtcloud-code-cli
+
+features:
+  review:
+    description: 检测入口
+    options:
+      - path: 目标目录
+      - --format json: 输出格式
+      - --rules: 指定规则子集
+      - --status: 写入 STATUS.md
+  contract:
+    description: 配置管理
+    subcommands:
+      - init: 生成默认配置
+      - list: 列出规则
+      - validate: 校验配置
+  refactor:
+    description: 代码变换（预览）
+    subcommands:
+      - rename: 符号重命名（dry-run + 写文件）
+  rules:
+    - id: long-function
+      detection: tree-sitter 函数体 AST 节点行数
+      thresholds: [30, 50, 80]
+      capability: 多语言静态分析
+    - id: long-parameter-list
+      detection: tree-sitter 参数节点计数
+      thresholds: [4, 6, 9]
+      capability: 多语言静态分析
+    - id: rust-wide-unsafe
+      detection: tree-sitter 语句计数
+      thresholds: [3, 5, 8]
+      capability: 多语言静态分析
+    - id: unused-variable
+      detection: cargo check 编译输出
+      threshold: SHOULD
+      capability: 编译器级检测
+    - id: missing-tests
+      detection: 源文件到测试文件映射
+      threshold: MUST
+      capability: 项目结构检测
+  languages:
+    - name: Rust
+      parser: tree-sitter-rust
+      ext: .rs
+      capability: 多语言静态分析
+    - name: Python
+      parser: tree-sitter-python
+      ext: .py
+      capability: 多语言静态分析
+    - name: Go
+      parser: tree-sitter-go
+      ext: .go
+      capability: 多语言静态分析
+    - name: Dart
+      parser: tree-sitter-dart
+      ext: .dart
+      capability: 多语言静态分析
+    - name: TypeScript
+      parser: tree-sitter-typescript
+      ext: [.ts, .tsx]
+      capability: 多语言静态分析
