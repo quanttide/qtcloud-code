@@ -1,8 +1,13 @@
-# refactor — 修复层
+# refactor — 已移除
 
-## 职责
+## 状态
 
-对 review + reflect 确定的 finding 生成修复代码。默认 dry-run，`--apply` 确认写入。
+**2026-08-16 已从交付约束体系移除。**
+
+- 设计：修复层（提取函数/内联/死代码删除机械变换 + LLM 策略）
+- 实现：仅 `rename`（符号重命名）——设计远大于实现
+- 替代：修复主路径由 `review --mode deep`（LLM patch）与 AI 直接修正承担——refactor 命令被架空
+- 处置：从体系移除；rename 能力如有需要并入独立工具
 
 ## 核心架构
 

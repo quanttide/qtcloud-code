@@ -7,19 +7,17 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
 ```
 约束（契约定义）──→ AI 生成（代码+测试+文档）──→ audit + review 校验
      ↑                                              │
-     └────── 问题清单反馈 → reflect 理解 → refactor 修复 ──┘
+     └──────────── 问题清单反馈 → AI 直接修正 ────────┘
 ```
 
-## 交付约束体系（两层校验 + 修复链路）
+## 交付约束体系（双约束核心）
 
 | 层 | 命令 | 校验/职责 | 判定方式 |
 |----|------|----------|---------|
 | **对齐约束** | `audit` | 代码↔测试↔文档三者对齐 | 机器可判定（提取/对比） |
 | **质量约束** | `review` | 代码问题（安全/坏味道/未使用） | 规则引擎 + LLM |
-| **修复链路** | `reflect` | 理解问题根因（问题清单 → 分析） | LLM |
-| | `refactor` | 执行修复（patch，dry-run 默认） | LLM |
 
-下层不能跳过：audit/review 不过不进修复；问题清单驱动修正 → 再校验 → 绿交付。
+**修复链路**：问题清单（audit/review 输出）→ **AI 直接修正**（不依赖 CLI 修复命令——AI 按清单改，再校验）。
 
 ## audit（对齐审计——核心）
 
@@ -33,18 +31,14 @@ AI 交付后校验三角对齐：
 
 输出：**问题清单**（{类型, API, 位置, 期望, 实际}）——清单即 AI 的修正任务。退出码 0/1，可入 CI。详见 [audit.md](audit.md)。
 
-## review（质量校验）
+## review（质量约束）
 
 audit 查对齐，review 查质量——两个维度互补，共同构成交付约束。规则引擎兜底 + LLM 语义审查（安全漏洞、并发 bug）。详见 [review.md](review.md)。
-
-## reflect / refactor（修复链路）
-
-问题清单（audit/review 输出）→ reflect 理解根因 → refactor 生成修复 patch（dry-run 默认，--apply 确认，验证不通过回退）。详见 [reflect.md](reflect.md)、[refactor.md](refactor.md)。
 
 ## 约束生效方式
 
 1. **生成前**：契约（contract.yaml）定义对齐与质量要求——作为 AI 任务的规格输入
-2. **生成后**：audit + review 校验 → 问题清单 → reflect/refactor 修复 → 再校验 → 绿交付
+2. **生成后**：audit + review 校验 → 问题清单 → **AI 按清单修正** → 再校验 → 绿交付
 3. **CI 门禁**：合并前校验必须绿（约束强制执行）
 
 ## 设计原则
@@ -52,8 +46,10 @@ audit 查对齐，review 查质量——两个维度互补，共同构成交付�
 - **约束先行**：契约是生成任务的规格输入，不是事后检查清单
 - **机器可判定优先**：对齐校验不依赖 LLM 判断；质量校验规则引擎兜底
 - **反馈可消费**：问题清单结构化——AI 直接按清单修正
-- **只读安全**：audit/review 不修改文件；refactor 修改需确认
+- **只读安全**：audit/review 不修改任何文件
 
-## 历史
+## 历史与降级工具
 
-- v0.2.x 曾以 3R（review→reflect→refactor）为**核心人机协作范式**（事后检查、人类高级程序员审查）——该范式地位已淘汰；三个能力保留并重构为**交付约束体系的一层**（质量校验 + 修复链路），对齐约束（audit）成为新核心。
+- v0.2.x 曾以 3R（review→reflect→refactor）为**核心人机协作范式**——该范式已淘汰；review 保留（质量约束），reflect/refactor 降级为**独立分析工具**（不入交付约束体系）：
+  - `reflect`：定向代码分析（slice/trace/graph/suggest）——独立工具，人类偶尔使用，见 [../reflect.md](../reflect.md)
+  - `refactor`：实现仅 rename（设计远大于实现，修复主路径已被 LLM 替代）——已从体系移除
