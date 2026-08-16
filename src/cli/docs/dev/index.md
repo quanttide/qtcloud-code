@@ -7,30 +7,34 @@ AI   = 海量初级程序员（LLM 主力干活，规则引擎是工具）
 人类 = 高级程序员（定策略、审结果、做判断）
 ```
 
-## 三层递进
+## 四层递进（3R + audit）
 
 ```
-review ──→ reflect ──→ refactor
-   │           │           │
-   │           │           └─ patch（代码修改）
-   │           └─ 理解层（LLM 分析 + 解释）
-   └─ 检测层（规则引擎 + LLM 审查）
+audit ──→ review ──→ reflect ──→ refactor
+   │           │           │           │
+   │           │           │           └─ patch（代码修改）
+   │           │           └─ 理解层（LLM 分析 + 解释）
+   │           └─ 检测层（规则引擎 + LLM 审查）
+   └─ 交付约束层（对齐校验——代码↔测试↔文档，约束驱动生成）
 ```
 
 每层依赖下一层。上层可以跳过，下层不能跳过。
 
 | 层 | 执行者 | 输出 | 耗时 | 人类介入 |
 |----|--------|------|------|----------|
+| **audit** | 提取器 + 静态分析 | 对齐问题清单 | 秒 | 读清单、给 AI 反馈 |
 | **review** | 规则引擎 → LLM | finding | 秒~分 | 配置规则、排除误报 |
 | **reflect** | LLM | 分析报告 | 分~十秒 | 阅读、做判断 |
 | **refactor** | LLM | patch | 十秒~分 | 审核、确认 apply |
 
+audit 详见 [audit.md](audit.md)。
+
 ## 三种模式映射
 
 ```
--review --mode lint  = review（仅规则引擎）
--review --mode llm   = review（规则引擎 + LLM）
--review --mode deep  = review + reflect + refactor（LLM 全流程）
+review --mode lint  = review（仅规则引擎）
+review --mode llm   = review（规则引擎 + LLM）
+review --mode deep  = review + reflect + refactor（LLM 全流程）
 ```
 
 ## 调用链
