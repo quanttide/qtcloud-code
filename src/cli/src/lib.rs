@@ -1,6 +1,9 @@
+pub mod audit;
 pub mod config;
 pub mod contract;
-pub mod parser;
 pub mod detector;
+pub mod llm;
 pub mod output;
+pub mod parser;
 pub mod refactor;
+pub mod scaffold;

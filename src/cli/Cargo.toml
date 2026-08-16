@@ -1,6 +1,6 @@
 [package]
 name = "qtcloud-code-cli"
-version = "0.2.1"
+version = "0.3.1"
 edition = "2024"
 description = "多语言代码静态分析与质量检测 CLI"
 authors = ["QuantTide <opensource@quanttide.com>"]
@@ -15,6 +15,14 @@ path = "src/main.rs"
 name = "review"
 path = "tests/review.rs"
 
+[[test]]
+name = "audit"
+path = "tests/audit.rs"
+
+[[test]]
+name = "scaffold"
+path = "tests/scaffold.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
@@ -27,6 +35,7 @@ tree-sitter-dart = "0.2"
 tree-sitter-typescript = "0.23"
 serde_yaml = "0.9"
 walkdir = "2"
+ureq = { version = "2", features = ["json"] }
 
 [[test]]
 name = "reflect"

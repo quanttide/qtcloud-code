@@ -3,11 +3,55 @@ use std::io::Write;
 use std::time::SystemTime;
 
 use crate::detector::{Finding, Severity};
+use crate::llm::EnrichedFinding;
 
 macro_rules! writeln_err {
     ($dst:expr $(, $arg:expr)* $(,)?) => {
         writeln!($dst $(, $arg)*).map_err(|e| e.to_string())
     };
+}
+
+/// review 的 JSON 输出（含 LLM 增强）——docs/dev/review.md 定义的格式
+pub fn write_review_json<W: Write>(writer: &mut W, findings: &[EnrichedFinding]) -> Result<(), String> {
+    let llm_count = findings.iter().filter(|f| f.llm.is_some()).count();
+    let semantic_count = findings.iter().filter(|f| f.rule_id == "llm-semantic").count();
+    let engine_count = findings.len() - semantic_count;
+    let output = serde_json::json!({
+        "mode": "review",
+        "engine": {"findings": engine_count},
+        "llm": {"findings": llm_count, "semantic": semantic_count},
+        "findings": findings,
+    });
+    let json = serde_json::to_string_pretty(&output).map_err(|e| e.to_string())?;
+    writeln_err!(writer, "{}", json)
+}
+
+/// review 的终端输出（含 LLM 增强行）
+pub fn write_review_terminal<W: Write>(writer: &mut W, findings: &[EnrichedFinding]) -> Result<(), String> {
+    if findings.is_empty() {
+        writeln_err!(writer, "未发现问题")?;
+        return Ok(());
+    }
+    for f in findings {
+        let (icon, tag) = match f.severity.as_str() {
+            "MUST" => ("🔴", "MUST"),
+            "SHOULD" => ("🟡", "SHOULD"),
+            _ => ("🔵", "MAY"),
+        };
+        writeln_err!(
+            writer,
+            "{} [{}] {}:{}  {}  {}",
+            icon, tag, f.file, f.line, f.rule_id, f.message
+        )?;
+        if let Some(llm) = &f.llm {
+            writeln_err!(
+                writer,
+                "    ↳ LLM [{}] {} ({})",
+                llm.priority, llm.explanation, llm.confidence
+            )?;
+        }
+    }
+    Ok(())
 }
 
 pub fn write_json<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {

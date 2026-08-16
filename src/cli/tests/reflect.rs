@@ -54,6 +54,23 @@ const PYTHON_PROCESS_ORDER: &str = r#"def process_order(input_str):
     return result
 "#;
 
+const GO_PROCESS_ORDER: &str = r#"package main
+
+func processOrder(input string) (string, error) {
+    raw := strings.TrimSpace(input)
+    parts := strings.Split(raw, ",")
+    name := "?"
+    if len(parts) > 0 { name = strings.TrimSpace(parts[0]) }
+    price := 0.0
+    if len(parts) > 1 { price, _ = strconv.ParseFloat(strings.TrimSpace(parts[1]), 64) }
+    qty := 1
+    if len(parts) > 2 { qty, _ = strconv.Atoi(strings.TrimSpace(parts[2])) }
+    total := price * float64(qty)
+    result := fmt.Sprintf("%s: $%.2f", name, total)
+    return result, nil
+}
+"#;
+
 fn cli() -> Command {
     Command::new(env!("CARGO_BIN_EXE_qtcloud-code"))
 }
@@ -104,6 +121,46 @@ fn test_slice_basic() {
     assert!(stdout.contains("L14") || stdout.contains("L13"), "expected trace lines, got: {}", stdout);
 }
 
+#[test]
+fn test_slice_empty_result() {
+    let fx = rust_fixture("empty.rs", "// just a comment\n");
+    let output = cli()
+        .arg("reflect").arg("slice")
+        .arg(fx.path.to_str().unwrap()).arg("1")
+        .output().unwrap();
+    assert_eq!(output.status.code(), Some(1), "行号在函数体外应退出 1");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("未找到追溯结果"), "got: {}", stderr);
+}
+
+#[test]
+fn test_slice_nonexistent_file() {
+    let output = cli()
+        .arg("reflect").arg("slice")
+        .arg("/nonexistent/test.rs").arg("1")
+        .output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "文件不存在应退出 2");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.is_empty(), "stderr 应有错误信息");
+}
+
+#[test]
+fn test_slice_json() {
+    let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
+    let output = cli()
+        .arg("reflect").arg("slice")
+        .arg(fx.path.to_str().unwrap()).arg("14")
+        .arg("--json")
+        .output().unwrap();
+    assert!(output.status.success(), "slice --json failed: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array());
+    assert!(parsed.as_array().unwrap().len() >= 1);
+    assert!(parsed[0]["line"].is_number());
+    assert!(parsed[0]["text"].is_string());
+}
+
 // ============ trace ============
 
 #[test]
@@ -141,6 +198,22 @@ fn test_trace_nonexistent_var() {
     assert!(!output.status.success(), "expected non-zero exit for nonexistent var");
 }
 
+#[test]
+fn test_trace_json() {
+    let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
+    let output = cli()
+        .arg("reflect").arg("trace")
+        .arg(fx.path.to_str().unwrap()).arg("price_int").arg("14")
+        .arg("--json")
+        .output().unwrap();
+    assert!(output.status.success(), "trace --json failed: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array());
+    assert!(parsed[0]["var"].is_string());
+    assert!(parsed[0]["from"].is_string());
+}
+
 // ============ graph ============
 
 #[test]
@@ -164,6 +237,22 @@ fn test_graph_empty() {
         .arg(fx.path.to_str().unwrap())
         .output().unwrap();
     assert_eq!(output.status.code(), Some(1), "expected exit code 1 for empty graph");
+}
+
+#[test]
+fn test_graph_json() {
+    let fx = rust_fixture("multi.rs", RUST_MULTI_FUNC);
+    let output = cli()
+        .arg("reflect").arg("graph")
+        .arg(fx.path.to_str().unwrap())
+        .arg("--json")
+        .output().unwrap();
+    assert!(output.status.success(), "graph --json failed: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array());
+    assert!(parsed.as_array().unwrap().len() >= 1);
+    assert!(parsed[0]["name"].is_string());
 }
 
 // ============ suggest ============
@@ -194,6 +283,22 @@ fn test_suggest_clean_file() {
     assert!(stderr.contains("未发现"), "expected 'no suspicious lines' message, got: {}", stderr);
 }
 
+#[test]
+fn test_suggest_json() {
+    let fx = rust_fixture("suspicious.rs", RUST_WITH_SUSPICIOUS);
+    let output = cli()
+        .arg("reflect").arg("suggest")
+        .arg(fx.path.to_str().unwrap())
+        .arg("--json")
+        .output().unwrap();
+    assert!(output.status.success(), "suggest --json failed: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array());
+    assert!(parsed[0]["kind"].is_string());
+    assert!(parsed[0]["line"].is_number());
+}
+
 // ============ multi-language ============
 
 #[test]
@@ -206,6 +311,20 @@ fn test_slice_python() {
     let code = output.status.code();
     assert_eq!(code, Some(0),
         "expected exit 0 for Python slice, got: {:?}", code);
+}
+
+#[test]
+fn test_trace_go() {
+    let fx = rust_fixture("order.go", GO_PROCESS_ORDER);
+    let output = cli()
+        .arg("reflect").arg("trace")
+        .arg(fx.path.to_str().unwrap()).arg("price")
+        .output().unwrap();
+    let code = output.status.code();
+    assert_eq!(code, Some(0),
+        "expected exit 0 for Go trace, got: {:?} — stderr: {}", code, String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("price"), "expected trace of price, got: {}", stdout);
 }
 
 #[test]

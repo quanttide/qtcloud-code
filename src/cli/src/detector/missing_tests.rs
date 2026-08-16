@@ -327,6 +327,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("build.rs"), "fn main() {}").unwrap();
         let config = Some(crate::config::ContractConfig {
+            audit: None,
             code: Some(crate::config::CodeConfig {
                 rules: None,
                 exclude: None,
@@ -343,6 +344,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\n").unwrap();
         let config = Some(crate::config::ContractConfig {
+            audit: None,
             code: Some(crate::config::CodeConfig {
                 rules: None,
                 exclude: None,
@@ -361,6 +363,7 @@ mod tests {
         std::fs::create_dir(&src).unwrap();
         std::fs::write(src.join("lib.rs"), "pub fn f() {}").unwrap();
         let config = Some(crate::config::ContractConfig {
+            audit: None,
             code: Some(crate::config::CodeConfig {
                 rules: None,
                 exclude: Some(vec!["src/lib.rs".into()]),

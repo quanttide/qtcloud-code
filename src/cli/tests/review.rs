@@ -48,7 +48,77 @@ fn test_review_json_format() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array());
+    // docs/dev/review.md 定义的格式：{mode, engine, llm, findings}
+    assert_eq!(parsed["mode"], "review");
+    assert!(parsed["engine"]["findings"].is_number());
+    assert!(parsed["llm"]["findings"].is_number());
+    assert!(parsed["findings"].is_array());
+}
+
+#[test]
+fn test_review_lint_mode() {
+    let fixture = fixture_path();
+    let output = cli()
+        .arg("review")
+        .arg(&fixture)
+        .arg("--mode")
+        .arg("lint")
+        .arg("--format")
+        .arg("json")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    // lint 模式无 LLM 注解
+    assert_eq!(parsed["llm"]["findings"], 0);
+}
+
+#[test]
+fn test_review_llm_mode_falls_back_without_key() {
+    let fixture = fixture_path();
+    let output = cli()
+        .env_remove("QTTCODE_LLM_API_KEY")
+        .arg("review")
+        .arg(&fixture)
+        .arg("--mode")
+        .arg("llm")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("回退为 lint"), "未配置 LLM 应警告并回退, got: {}", stderr);
+}
+
+#[test]
+fn test_review_deep_mode_falls_back_without_key() {
+    let fixture = fixture_path();
+    let output = cli()
+        .env_remove("QTTCODE_LLM_API_KEY")
+        .arg("review")
+        .arg(&fixture)
+        .arg("--mode")
+        .arg("deep")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("回退为 lint"), "got: {}", stderr);
+}
+
+#[test]
+fn test_review_unknown_mode_errors() {
+    let fixture = fixture_path();
+    let output = cli()
+        .arg("review")
+        .arg(&fixture)
+        .arg("--mode")
+        .arg("bogus")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("未知 mode"), "got: {}", stderr);
 }
 
 #[test]

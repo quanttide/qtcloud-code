@@ -9,6 +9,17 @@ const DEFAULT_CONFIG: &str = r#"code:
     - src/main.rs
     - src/lib.rs
     - target/
+audit:
+  code:
+    - src
+  tests:
+    - tests
+  docs:
+    - docs
+  edges:
+    - code-docs
+    - code-tests
+    - tests-docs
 "#;
 
 /// 创建默认配置文件
@@ -44,6 +55,17 @@ pub fn validate(path: &Path, all_rules: &[&str]) -> Result<(), String> {
             for rule in rules {
                 if !all_rules.contains(&rule.as_str()) {
                     println!("  ⚠ 未知规则: {}", rule);
+                    issues += 1;
+                }
+            }
+        }
+    }
+
+    if let Some(audit) = &config.audit {
+        if let Some(edges) = &audit.edges {
+            for edge in edges {
+                if !["code-docs", "code-tests", "tests-docs"].contains(&edge.as_str()) {
+                    println!("  ⚠ 未知校验边: {}", edge);
                     issues += 1;
                 }
             }

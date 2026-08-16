@@ -25,9 +25,21 @@ enum Commands {
         /// 仅运行指定的检测规则（逗号分隔）
         #[arg(long, value_delimiter = ',')]
         rules: Option<Vec<String>>,
+        /// 审查模式：lint（仅规则引擎）/ llm（规则引擎 + LLM 审查，默认）/ deep（审查 + 修复建议）
+        #[arg(long, default_value = "llm")]
+        mode: String,
         /// 将扫描结果写入被检测项目的 STATUS.md
         #[arg(long)]
         status: bool,
+    },
+    /// 对齐审计：校验代码、测试、文档三者对齐（约束驱动生成）
+    Audit {
+        /// 目标目录（默认当前目录）
+        #[arg(default_value = ".")]
+        path: String,
+        /// JSON 输出（机器可读，供 AI 直接消费）
+        #[arg(long)]
+        json: bool,
     },
     /// 列出可用检测规则
     ListRules {
@@ -49,6 +61,11 @@ enum Commands {
     Reflect {
         #[command(subcommand)]
         action: ReflectAction,
+    },
+    /// 骨架生成：文档驱动（tests）/ 测试驱动（code）
+    Scaffold {
+        #[command(subcommand)]
+        action: ScaffoldAction,
     },
 }
 
@@ -94,11 +111,40 @@ enum RefactorAction {
 }
 
 #[derive(Debug, Clone, Subcommand)]
+enum ScaffoldAction {
+    /// 文档驱动：从文档声明的 API 生成测试骨架
+    Tests {
+        /// 文档文件或目录
+        path: String,
+        /// 目标语言（rs/py/go/ts；缺省时从文档代码块检测）
+        #[arg(long)]
+        lang: Option<String>,
+        /// 写入文件（缺省输出到 stdout）
+        #[arg(long)]
+        output: Option<String>,
+    },
+    /// 测试驱动：从测试引用的 API 生成代码骨架（stub）
+    Code {
+        /// 测试文件
+        path: String,
+        /// 目标语言（rs/py/go/ts；缺省从文件扩展名推断）
+        #[arg(long)]
+        lang: Option<String>,
+        /// 写入文件（缺省输出到 stdout）
+        #[arg(long)]
+        output: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
 enum ReflectAction {
     /// 反向追溯变量定义链
     Slice {
         file: String,
         line: usize,
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
     },
     /// 追踪变量的数据流路径（line 可选，不传则自动查找声明）
     Trace {
@@ -106,14 +152,23 @@ enum ReflectAction {
         var: String,
         #[arg(required = false)]
         line: Option<usize>,
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
     },
     /// 生成函数级调用图
     Graph {
         file: String,
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
     },
     /// 自动推荐可疑行号（return / panic / 复杂表达式）
     Suggest {
         file: String,
+        /// JSON 输出
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -144,7 +199,8 @@ fn all_rule_ids() -> Vec<&'static str> {
 fn main() {
     let cli = Cli::parse();
     let result = match cli.command {
-        Commands::Review { path, format, rules, status } => run_review(&path, &format, rules, status),
+        Commands::Review { path, format, rules, mode, status } => run_review(&path, &format, rules, &mode, status),
+        Commands::Audit { path, json } => run_audit(&path, json),
         Commands::ListRules { json } => run_list_rules(json),
         Commands::Contract { action } => match action {
             ContractAction::Init { path } => run_contract_init(&path),
@@ -157,10 +213,14 @@ fn main() {
             }
         },
         Commands::Reflect { action } => match action {
-            ReflectAction::Slice { file, line } => run_reflect_slice(file, line),
-            ReflectAction::Trace { file, line, var } => run_reflect_trace(file, line, var),
-            ReflectAction::Graph { file } => run_reflect_graph(file),
-            ReflectAction::Suggest { file } => run_reflect_suggest(file),
+            ReflectAction::Slice { file, line, json } => run_reflect_slice(file, line, json),
+            ReflectAction::Trace { file, line, var, json } => run_reflect_trace(file, line, var, json),
+            ReflectAction::Graph { file, json } => run_reflect_graph(file, json),
+            ReflectAction::Suggest { file, json } => run_reflect_suggest(file, json),
+        },
+        Commands::Scaffold { action } => match action {
+            ScaffoldAction::Tests { path, lang, output } => run_scaffold_tests(&path, lang, output),
+            ScaffoldAction::Code { path, lang, output } => run_scaffold_code(&path, lang, output),
         },
     };
 
@@ -178,7 +238,7 @@ fn main() {
 
 // ============ review ============
 
-fn run_review(path: &str, format: &str, cli_rules: Option<Vec<String>>, write_status: bool) -> Result<bool, String> {
+fn run_review(path: &str, format: &str, cli_rules: Option<Vec<String>>, mode: &str, write_status: bool) -> Result<bool, String> {
     let root = resolve_root(path)?;
     let config = qtcloud_code_cli::config::load_contract(&root);
     let enabled_rules = qtcloud_code_cli::config::resolve_enabled_rules(&cli_rules, &config, &all_rule_ids());
@@ -207,13 +267,42 @@ fn run_review(path: &str, format: &str, cli_rules: Option<Vec<String>>, write_st
         all_findings.extend(compiler_findings);
     }
 
-    write_output(format, &all_findings)?;
+    // LLM 二次审查（mode: llm / deep）——未配置 LLM 时回退 lint 并提示
+    let enriched = qtcloud_code_cli::llm::run_llm_stage(mode, &all_findings)?;
+
+    write_output(format, &enriched)?;
 
     if write_status {
         write_status_file(&root, &all_findings)?;
     }
 
     Ok(true)
+}
+
+// ============ audit ============
+
+fn run_audit(path: &str, json: bool) -> Result<bool, String> {
+    let root = resolve_root(path)?;
+    let config = qtcloud_code_cli::config::load_contract(&root);
+    let audit_config = config.as_ref().and_then(|c| c.audit.as_ref());
+    let (result, skipped) = qtcloud_code_cli::audit::run_audit(&root, audit_config, |rel| {
+        qtcloud_code_cli::config::is_excluded(rel, &config)
+    });
+
+    for s in &skipped {
+        eprintln!("提示: {}", s);
+    }
+
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    if json {
+        qtcloud_code_cli::audit::write_json(&mut handle, &result)?;
+    } else {
+        qtcloud_code_cli::audit::write_terminal(&mut handle, &result)?;
+    }
+
+    // 退出码：0（对齐）/ 1（存在差异）
+    Ok(result.is_clean())
 }
 
 fn resolve_root(path: &str) -> Result<PathBuf, String> {
@@ -258,12 +347,12 @@ fn scan_file(entry: &walkdir::DirEntry, parsers: &mut [Box<dyn LanguageParser>],
     }
 }
 
-fn write_output(format: &str, findings: &[Finding]) -> Result<(), String> {
+fn write_output(format: &str, findings: &[qtcloud_code_cli::llm::EnrichedFinding]) -> Result<(), String> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     match format {
-        "json" => qtcloud_code_cli::output::write_json(&mut handle, findings),
-        _ => qtcloud_code_cli::output::write_terminal(&mut handle, findings),
+        "json" => qtcloud_code_cli::output::write_review_json(&mut handle, findings),
+        _ => qtcloud_code_cli::output::write_review_terminal(&mut handle, findings),
     }
 }
 
@@ -368,9 +457,124 @@ fn run_refactor_rename(file: String, old_name: String, new_name: String, dry_run
     Ok(true)
 }
 
+// ============ scaffold ============
+
+/// 文档驱动：文档声明 → 测试骨架
+fn run_scaffold_tests(path: &str, lang: Option<String>, output: Option<String>) -> Result<bool, String> {
+    let root = Path::new(path);
+    if !root.exists() {
+        return Err(format!("路径不存在: {}", path));
+    }
+
+    // 收集文档文件（文件或目录下的 .md）
+    let mut files: Vec<PathBuf> = Vec::new();
+    if root.is_file() {
+        files.push(root.to_path_buf());
+    } else {
+        for entry in walkdir::WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file()
+                && entry.path().extension().and_then(|e| e.to_str()) == Some("md")
+            {
+                files.push(entry.path().to_path_buf());
+            }
+        }
+        files.sort();
+    }
+    if files.is_empty() {
+        return Err(format!("未找到文档文件: {}", path));
+    }
+
+    // 语言：--lang 优先，否则从文档代码块检测
+    let mut combined = String::new();
+    for f in &files {
+        let source = std::fs::read_to_string(f).map_err(|e| format!("读取文档失败: {}", e))?;
+        combined.push_str(&source);
+    }
+    let lang = match lang {
+        Some(l) => qtcloud_code_cli::scaffold::normalize_lang(&l)?.to_string(),
+        None => match qtcloud_code_cli::scaffold::detect_lang_from_doc(&combined) {
+            Some(l) => l.to_string(),
+            None => return Err("无法从文档检测语言（无代码块标注），请用 --lang 指定（rs/py/go/ts）".to_string()),
+        },
+    };
+
+    // 解析全部文档声明
+    let mut apis = Vec::new();
+    for f in &files {
+        let source = std::fs::read_to_string(f).map_err(|e| format!("读取文档失败: {}", e))?;
+        let rel = f.strip_prefix(root).unwrap_or(f).to_string_lossy().to_string();
+        apis.extend(qtcloud_code_cli::audit::parse_doc_apis(&source, &rel));
+    }
+    if apis.is_empty() {
+        eprintln!("未找到文档声明的 API");
+        return Ok(false);
+    }
+
+    let content = qtcloud_code_cli::scaffold::gen_tests(&apis, &lang, path)?;
+    write_scaffold(&content, output)?;
+    Ok(true)
+}
+
+/// 测试驱动：测试引用 → 代码骨架
+fn run_scaffold_code(path: &str, lang: Option<String>, output: Option<String>) -> Result<bool, String> {
+    let file = Path::new(path);
+    if !file.is_file() {
+        return Err(format!("测试文件不存在: {}", path));
+    }
+    let ext = file.extension().and_then(|e| e.to_str()).unwrap_or("");
+
+    // 语言：--lang 优先，否则从扩展名推断
+    let lang = match lang {
+        Some(l) => qtcloud_code_cli::scaffold::normalize_lang(&l)?.to_string(),
+        None => match ext {
+            "py" => "py",
+            "rs" => "rs",
+            "go" => "go",
+            "ts" | "tsx" => "ts",
+            _ => return Err(format!("无法从扩展名 .{} 推断语言，请用 --lang 指定（rs/py/go/ts）", ext)),
+        }
+        .to_string(),
+    };
+
+    let source = std::fs::read_to_string(file).map_err(|e| format!("读取测试文件失败: {}", e))?;
+    let mut parser: Box<dyn qtcloud_code_cli::parser::LanguageParser> = match ext {
+        "rs" => Box::new(qtcloud_code_cli::parser::rust::RustParser::new()?),
+        "py" => Box::new(qtcloud_code_cli::parser::python::PythonParser::new()?),
+        "go" => Box::new(qtcloud_code_cli::parser::go::GoParser::new()?),
+        "ts" | "tsx" => Box::new(qtcloud_code_cli::parser::typescript::TypeScriptParser::new()?),
+        _ => return Err(format!("不支持的文件类型: .{}", ext)),
+    };
+    let refs = qtcloud_code_cli::audit::collect_file_refs(parser.as_mut(), file, &source);
+    let refs = qtcloud_code_cli::audit::project_refs(&refs);
+    if refs.is_empty() {
+        eprintln!("未找到测试引用的项目 API（外部/内置调用已过滤）");
+        return Ok(false);
+    }
+
+    let content = qtcloud_code_cli::scaffold::gen_code(&refs, &lang, path)?;
+    write_scaffold(&content, output)?;
+    Ok(true)
+}
+
+fn write_scaffold(content: &str, output: Option<String>) -> Result<(), String> {
+    match output {
+        Some(path) => {
+            if let Some(parent) = Path::new(&path).parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent).map_err(|e| format!("无法创建目录: {}", e))?;
+                }
+            }
+            std::fs::write(&path, content).map_err(|e| format!("写入失败: {}", e))?;
+            println!("已写入: {}", path);
+        }
+        None => print!("{}", content),
+    }
+    Ok(())
+}
+
 // ============ reflect ============
 
-fn run_reflect_slice(file: String, line: usize) -> Result<bool, String> {
+fn run_reflect_slice(file: String, line: usize, json: bool) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
@@ -434,6 +638,15 @@ fn run_reflect_slice(file: String, line: usize) -> Result<bool, String> {
         return Ok(false);
     }
 
+    if json {
+        let arr: Vec<serde_json::Value> = entries
+            .iter()
+            .map(|(ln, text)| serde_json::json!({"line": ln, "text": text}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).map_err(|e| e.to_string())?);
+        return Ok(true);
+    }
+
     for (ln, text) in &entries {
         println!("L{} {}", ln, text);
     }
@@ -441,7 +654,7 @@ fn run_reflect_slice(file: String, line: usize) -> Result<bool, String> {
     Ok(true)
 }
 
-fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<bool, String> {
+fn run_reflect_trace(file: String, line: Option<usize>, var: String, json: bool) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
@@ -501,6 +714,15 @@ fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<b
         return Ok(false);
     }
 
+    if json {
+        let arr: Vec<serde_json::Value> = entries
+            .iter()
+            .map(|(ln, v, from)| serde_json::json!({"line": ln, "var": v, "from": from}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).map_err(|e| e.to_string())?);
+        return Ok(true);
+    }
+
     for (ln, v, from) in &entries {
         if from.is_empty() {
             println!("L{} {} = (参数或外部定义)", ln, v);
@@ -512,7 +734,7 @@ fn run_reflect_trace(file: String, line: Option<usize>, var: String) -> Result<b
     Ok(true)
 }
 
-fn run_reflect_graph(file: String) -> Result<bool, String> {
+fn run_reflect_graph(file: String, json: bool) -> Result<bool, String> {
     let path = Path::new(&file);
     let source = std::fs::read_to_string(path)
         .map_err(|e| format!("读取文件失败: {}", e))?;
@@ -554,6 +776,15 @@ fn run_reflect_graph(file: String) -> Result<bool, String> {
         return Ok(false);
     }
 
+    if json {
+        let arr: Vec<serde_json::Value> = functions
+            .iter()
+            .map(|(ln, name)| serde_json::json!({"line": ln, "name": name}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).map_err(|e| e.to_string())?);
+        return Ok(true);
+    }
+
     for (ln, name) in &functions {
         println!("L{:04} {} — 调用: 0, 被调用: 0", ln, name);
     }
@@ -561,7 +792,7 @@ fn run_reflect_graph(file: String) -> Result<bool, String> {
     Ok(true)
 }
 
-fn run_reflect_suggest(file: String) -> Result<bool, String> {
+fn run_reflect_suggest(file: String, json: bool) -> Result<bool, String> {
     let source = std::fs::read_to_string(&file)
         .map_err(|e| format!("读取文件失败: {}", e))?;
     let lines: Vec<&str> = source.lines().collect();
@@ -586,6 +817,15 @@ fn run_reflect_suggest(file: String) -> Result<bool, String> {
     if suggestions.is_empty() {
         eprintln!("未发现可疑行");
         return Ok(false);
+    }
+
+    if json {
+        let arr: Vec<serde_json::Value> = suggestions
+            .iter()
+            .map(|(line, kind, text)| serde_json::json!({"line": line, "kind": kind, "text": text}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).map_err(|e| e.to_string())?);
+        return Ok(true);
     }
 
     println!("可疑行号（可按优先级分析）:");

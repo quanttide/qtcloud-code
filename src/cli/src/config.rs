@@ -4,6 +4,44 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ContractConfig {
     pub code: Option<CodeConfig>,
+    /// audit 对齐审计配置（代码/测试/文档路径 + 校验边开关）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audit: Option<AuditConfig>,
+}
+
+/// audit 对齐审计配置
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
+pub struct AuditConfig {
+    /// 代码目录/文件列表（默认 ["src"]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<Vec<String>>,
+    /// 测试目录/文件列表（默认 ["tests"]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tests: Option<Vec<String>>,
+    /// 文档目录/文件列表（默认 ["docs"]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docs: Option<Vec<String>>,
+    /// 启用的校验边：code-docs / code-tests / tests-docs（默认全部）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edges: Option<Vec<String>>,
+}
+
+impl AuditConfig {
+    pub fn code_paths(&self) -> Vec<String> {
+        self.code.clone().unwrap_or_else(|| vec!["src".to_string()])
+    }
+    pub fn test_paths(&self) -> Vec<String> {
+        self.tests.clone().unwrap_or_else(|| vec!["tests".to_string()])
+    }
+    pub fn doc_paths(&self) -> Vec<String> {
+        self.docs.clone().unwrap_or_else(|| vec!["docs".to_string()])
+    }
+    pub fn edge_enabled(&self, edge: &str) -> bool {
+        match &self.edges {
+            Some(edges) => edges.iter().any(|e| e == edge),
+            None => true,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -97,6 +135,7 @@ mod tests {
                 skip_test_functions: None,
                 skip_skeleton_files: None,
             }),
+            audit: None,
         });
         let all = &["rule-a", "rule-b", "rule-c"];
         let result = resolve_enabled_rules(&cli, &config, all);
@@ -113,6 +152,7 @@ mod tests {
                 skip_test_functions: None,
                 skip_skeleton_files: None,
             }),
+            audit: None,
         });
         let all = &["rule-a", "rule-b", "rule-c"];
         let result = resolve_enabled_rules(&cli, &config, all);
@@ -131,7 +171,7 @@ mod tests {
     #[test]
     fn test_config_without_rules_field() {
         let cli: Option<Vec<String>> = None;
-        let config = Some(ContractConfig { code: None });
+        let config = Some(ContractConfig { code: None, audit: None });
         let all = &["rule-a"];
         let result = resolve_enabled_rules(&cli, &config, all);
         assert_eq!(result, vec!["rule-a"]);
@@ -152,6 +192,7 @@ mod tests {
                 skip_test_functions: Some(false),
                 skip_skeleton_files: None,
             }),
+            audit: None,
         });
         assert!(!should_skip_test_functions(&config));
     }
@@ -171,7 +212,72 @@ mod tests {
                 skip_test_functions: None,
                 skip_skeleton_files: Some(false),
             }),
+            audit: None,
         });
         assert!(!should_skip_skeleton_files(&config));
+    }
+
+    // ============ audit 配置 ============
+
+    #[test]
+    fn test_audit_default_paths() {
+        let audit = AuditConfig::default();
+        assert_eq!(audit.code_paths(), vec!["src"]);
+        assert_eq!(audit.test_paths(), vec!["tests"]);
+        assert_eq!(audit.doc_paths(), vec!["docs"]);
+    }
+
+    #[test]
+    fn test_audit_custom_paths() {
+        let audit = AuditConfig {
+            code: Some(vec!["lib".into(), "core".into()]),
+            tests: Some(vec!["spec".into()]),
+            docs: Some(vec!["api".into()]),
+            edges: None,
+        };
+        assert_eq!(audit.code_paths(), vec!["lib", "core"]);
+        assert_eq!(audit.test_paths(), vec!["spec"]);
+        assert_eq!(audit.doc_paths(), vec!["api"]);
+    }
+
+    #[test]
+    fn test_audit_edges_default_all_enabled() {
+        let audit = AuditConfig::default();
+        assert!(audit.edge_enabled("code-docs"));
+        assert!(audit.edge_enabled("code-tests"));
+        assert!(audit.edge_enabled("tests-docs"));
+    }
+
+    #[test]
+    fn test_audit_edges_custom_switch() {
+        let audit = AuditConfig {
+            code: None,
+            tests: None,
+            docs: None,
+            edges: Some(vec!["code-tests".into()]),
+        };
+        assert!(!audit.edge_enabled("code-docs"));
+        assert!(audit.edge_enabled("code-tests"));
+        assert!(!audit.edge_enabled("tests-docs"));
+    }
+
+    #[test]
+    fn test_contract_config_parses_audit_section() {
+        let yaml = r#"
+code:
+  rules: [long-function]
+audit:
+  code: [lib]
+  tests: [spec]
+  docs: [api]
+  edges: [code-docs]
+"#;
+        let config: ContractConfig = serde_yaml::from_str(yaml).unwrap();
+        let audit = config.audit.unwrap();
+        assert_eq!(audit.code_paths(), vec!["lib"]);
+        assert_eq!(audit.test_paths(), vec!["spec"]);
+        assert_eq!(audit.doc_paths(), vec!["api"]);
+        assert!(audit.edge_enabled("code-docs"));
+        assert!(!audit.edge_enabled("code-tests"));
     }
 }
