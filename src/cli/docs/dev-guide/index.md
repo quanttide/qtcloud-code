@@ -60,5 +60,5 @@ audit 红态问题清单即下一步任务：`测试引用不存在` → `scaffo
 ## 历史与降级工具
 
 - v0.2.x 曾以 3R（review→reflect→refactor）为**核心人机协作范式**——该范式已淘汰；review 保留（质量约束），reflect/refactor 降级为**独立分析工具**（不入交付约束体系）：
-  - `reflect`：定向代码分析（slice/trace/graph/suggest）——独立工具，人类偶尔使用，见 [../reflect.md](../reflect.md)
+  - `reflect`：定向代码分析（slice/trace/graph/suggest）——独立工具，人类偶尔使用，见 [../user-guide/reflect.md](../user-guide/reflect.md)
   - `refactor`：实现仅 rename（设计远大于实现，修复主路径已被 LLM 替代）——已从体系移除
