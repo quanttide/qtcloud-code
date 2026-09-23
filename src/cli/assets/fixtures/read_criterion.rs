@@ -1,12 +1,4 @@
-//! reflect_suggest — 可疑行推荐：文本启发式匹配 return / panic / unsafe / cast / parse
-//!
-//! 素材：自 qtcloud-work 抽取的 `read_criterion`（见 `assets/fixtures/`）——
-//! 生产代码无 unsafe/panic/.parse，真实命中以 return 类为主。
-//! 运行：`cargo run --example reflect_suggest`
-
-use std::path::Path;
-
-const SAMPLE: &str = r##"// 自 qtcloud-work 抽取的案例（原 src/criterion/read.rs 的 read_criterion）
+// 自 qtcloud-work 抽取的案例（原 src/criterion/read.rs 的 read_criterion）
 //! 判据的读法：从定义里的字段读出 [`Criterion`]，顺带把语法过一遍。
 //!
 //! 判据是**字段**，不是一行小语法：`path` 存在、`absent` 不存在、
@@ -94,25 +86,4 @@ pub fn read_criterion(
         ));
     }
     Ok(criterion_of(value))
-}
-"##;
-
-/// 素材优先：`assets/fixtures/read_criterion.rs`；缺省回落内嵌样例
-fn load_sample() -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/read_criterion.rs");
-    std::fs::read_to_string(path).unwrap_or_else(|_| SAMPLE.to_string())
-}
-
-fn main() {
-    let code = load_sample();
-    let hits = qtcloud_code_cli::reflect::suggest(&code);
-
-    if hits.is_empty() {
-        println!("未发现可疑行");
-        return;
-    }
-    println!("== 可疑行（共 {} 条）==", hits.len());
-    for s in &hits {
-        println!("L{:02} [{}] {}", s.line, s.kind, s.text);
-    }
 }

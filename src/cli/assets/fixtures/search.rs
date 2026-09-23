@@ -1,11 +1,4 @@
-//! reflect_graph — 函数级调用图：真实的 callees / callers 关系
-//!
-//! 素材：自 qtcloud-work 抽取的 `search` 模块（见 `assets/fixtures/`）。
-//! 运行：`cargo run --example reflect_graph`
-
-use std::path::Path;
-
-const SAMPLE: &str = r##"// 自 qtcloud-work 抽取的案例（原 src/search/mod.rs 全文）
+// 自 qtcloud-work 抽取的案例（原 src/search/mod.rs 全文）
 //! 领域服务：按名找文档——用 `catalog` 建的名字索引，先精确、不中再模糊。
 //!
 //! 依赖方向单向：`search → catalog`，`catalog` 不得依赖 `search`。
@@ -80,33 +73,4 @@ pub fn search(root: &Path, name: &str, show: bool) -> Outcome {
     }
     result.columns = vec!["类别".to_string(), "路径".to_string()];
     result
-}
-"##;
-
-/// 素材优先：`assets/fixtures/search.rs`；缺省回落内嵌样例
-fn load_sample() -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/search.rs");
-    std::fs::read_to_string(path).unwrap_or_else(|_| SAMPLE.to_string())
-}
-
-fn main() {
-    let code = load_sample();
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(&tree_sitter_rust::LANGUAGE.into())
-        .expect("加载 Rust 语法");
-    let tree = parser.parse(&code, None).expect("解析示例");
-
-    let graph = qtcloud_code_cli::reflect::build_call_graph(&code, &tree);
-
-    let mut nodes: Vec<_> = graph.into_values().collect();
-    nodes.sort_by_key(|n| n.line);
-
-    println!("== 调用图（共 {} 个函数）==", nodes.len());
-    for n in &nodes {
-        println!(
-            "L{:04} {} — 调用: {:?}，被调用: {:?}",
-            n.line, n.name, n.callees, n.callers
-        );
-    }
 }
