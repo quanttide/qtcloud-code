@@ -227,14 +227,14 @@ pub fn code_search(source: &str, tree: &tree_sitter::Tree, target_kind: &str) ->
 // ============ type_info ============
 
 #[derive(Debug)]
-pub struct TypeInfo {
+pub struct CodeTypeInfo {
     pub var: String,
     pub line: usize,
     pub type_annotation: Option<String>,
 }
 
 /// 提取变量类型注解
-pub fn type_info(source: &str, tree: &tree_sitter::Tree) -> Vec<TypeInfo> {
+pub fn type_info(source: &str, tree: &tree_sitter::Tree) -> Vec<CodeTypeInfo> {
     let mut results = Vec::new();
     let root = tree.root_node();
     walk_all(&root, &mut |n| {
@@ -267,7 +267,7 @@ pub fn type_info(source: &str, tree: &tree_sitter::Tree) -> Vec<TypeInfo> {
                 }
             }
             if let Some(var) = var {
-                results.push(TypeInfo {
+                results.push(CodeTypeInfo {
                     var,
                     line: n.start_position().row + 1,
                     type_annotation: typ,

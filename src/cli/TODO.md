@@ -9,8 +9,8 @@
 
 ## 阶段二 重构 main.rs
 
-- [ ] `src/evidence.rs`：`Evidence` / `EvidenceChain` 统一信封，`count_evidence`、`anchor_level` 迁入并随迁 3 个分级单测（归属层落定）
-- [ ] reflect 六个输出结构体实现 `From` 转 `Evidence`（信封 kind + 结构化负载）
+- [ ] `src/evidence.rs`：`CodeEvidence` / `CodeEvidenceChain` 统一信封，`count_evidence`、`anchor_level` 迁入并随迁 3 个分级单测（归属层落定）
+- [ ] reflect 六个输出结构体实现 `From` 转 `CodeEvidence`（信封 kind + 结构化负载）
 - [ ] `examples/evidence.rs` 改用 lib 评证，删除内联计数（分级输出不变）
 - [ ] `build_call_graph` callee 归一化：取终末方法短名、剔除闭包体（D15 拆解）
 - [ ] 项目内调用过滤复用 `audit::project_refs`，外部/标准库调用按策略处理（D15 拆解）

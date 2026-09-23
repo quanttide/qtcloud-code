@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use super::{Finding, Severity};
+use super::{CodeFinding, CodeSeverity};
 
 pub const RULE_ID: &str = "unused-variable";
 pub const DESCRIPTION: &str = "未使用变量（通过 rustc/cargo check 检测）";
@@ -11,7 +11,7 @@ const WARNING_CODES: &[&str] = &["unused_variables", "unused_mut"];
 pub fn check_compiler(
     project_root: &Path,
     enabled_rules: &[String],
-) -> Result<Vec<Finding>, String> {
+) -> Result<Vec<CodeFinding>, String> {
     if !enabled_rules.contains(&RULE_ID.to_string()) {
         return Ok(vec![]);
     }
@@ -34,7 +34,7 @@ pub fn check_compiler(
     Ok(findings)
 }
 
-fn parse_compiler_message(line: &str, project_root: &Path) -> Option<Finding> {
+fn parse_compiler_message(line: &str, project_root: &Path) -> Option<CodeFinding> {
     if !line.starts_with('{') {
         return None;
     }
@@ -56,11 +56,11 @@ fn parse_compiler_message(line: &str, project_root: &Path) -> Option<Finding> {
     let column = span["column_start"].as_u64().unwrap_or(1) as usize;
     let msg_text = msg["message"]["message"].as_str()?.to_string();
 
-    Some(Finding {
+    Some(CodeFinding {
         file_path: project_root.join(file_name),
         line,
         column,
-        severity: Severity::Should,
+        severity: CodeSeverity::Should,
         rule_id: RULE_ID.to_string(),
         message: msg_text,
     })
@@ -81,7 +81,7 @@ mod tests {
         assert_eq!(f.file_path, Path::new("/project/src/lib.rs"));
         assert_eq!(f.line, 5);
         assert_eq!(f.column, 9);
-        assert_eq!(f.severity, Severity::Should);
+        assert_eq!(f.severity, CodeSeverity::Should);
         assert_eq!(f.rule_id, "unused-variable");
         assert_eq!(f.message, "unused variable: `x`");
     }

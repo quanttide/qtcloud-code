@@ -1,10 +1,10 @@
-use crate::reflect::Suggestion;
+use crate::reflect::CodeSuggestion;
 
 /// 可疑行推荐：文本启发式匹配 return / panic / unsafe / cast / parse。
 ///
 /// 自 `main.rs` 的 `run_reflect_suggest` 迁入，实现保持文本匹配（不升级 AST，
 /// 见 ROADMAP 阶段二「suggest 保留文本实现」）。
-pub fn suggest(source: &str) -> Vec<Suggestion> {
+pub fn suggest(source: &str) -> Vec<CodeSuggestion> {
     let mut suggestions = Vec::new();
     for (i, line) in source.lines().enumerate() {
         let n = i + 1;
@@ -14,13 +14,13 @@ pub fn suggest(source: &str) -> Vec<Suggestion> {
             || t.starts_with("return ")
             || t.starts_with("return;")
         {
-            suggestions.push(Suggestion {
+            suggestions.push(CodeSuggestion {
                 line: n,
                 kind: "return",
                 text: t.to_string(),
             });
         } else if t.contains("panic!(") || t.contains("unreachable!(") || t.contains("todo!(") {
-            suggestions.push(Suggestion {
+            suggestions.push(CodeSuggestion {
                 line: n,
                 kind: "panic",
                 text: t.to_string(),
@@ -30,7 +30,7 @@ pub fn suggest(source: &str) -> Vec<Suggestion> {
             && !t.starts_with("unsafe trait")
             && !t.starts_with("unsafe impl")
         {
-            suggestions.push(Suggestion {
+            suggestions.push(CodeSuggestion {
                 line: n,
                 kind: "unsafe",
                 text: t.to_string(),
@@ -38,13 +38,13 @@ pub fn suggest(source: &str) -> Vec<Suggestion> {
         } else if (t.contains("as ") && t.contains("f64"))
             || (t.contains("as ") && t.contains("i32"))
         {
-            suggestions.push(Suggestion {
+            suggestions.push(CodeSuggestion {
                 line: n,
                 kind: "cast",
                 text: t.to_string(),
             });
         } else if t.contains(".parse()") || t.contains(".parse::<") {
-            suggestions.push(Suggestion {
+            suggestions.push(CodeSuggestion {
                 line: n,
                 kind: "parse",
                 text: t.to_string(),

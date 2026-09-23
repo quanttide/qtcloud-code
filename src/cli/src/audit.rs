@@ -36,7 +36,7 @@ fn walk_subtree<F: FnMut(tree_sitter::Node)>(root: tree_sitter::Node, f: &mut F)
 
 /// 一条对齐问题的结构化描述（即 AI 的修正任务）
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuditIssue {
+pub struct AlignIssue {
     /// 问题类型（中文描述，机器可读）
     pub issue_type: String,
     /// API 名称（带签名）
@@ -71,14 +71,14 @@ pub struct TestRef {
 
 /// audit 运行结果
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct AuditResult {
-    pub issues: Vec<AuditIssue>,
+pub struct AlignResult {
+    pub issues: Vec<AlignIssue>,
     pub code_apis: Vec<ApiSignature>,
     pub doc_apis: Vec<ApiSignature>,
     pub test_refs: Vec<TestRef>,
 }
 
-impl AuditResult {
+impl AlignResult {
     pub fn is_clean(&self) -> bool {
         self.issues.is_empty()
     }
@@ -612,11 +612,11 @@ fn path_skipped(path: &Path) -> bool {
 // ============ 三边对比 ============
 
 /// 边 1：代码 ↔ 文档
-pub fn compare_code_docs(code_apis: &[ApiSignature], doc_apis: &[ApiSignature]) -> Vec<AuditIssue> {
+pub fn compare_code_docs(code_apis: &[ApiSignature], doc_apis: &[ApiSignature]) -> Vec<AlignIssue> {
     let mut issues = Vec::new();
     for api in code_apis {
         match doc_apis.iter().find(|d| d.name == api.name) {
-            None => issues.push(AuditIssue {
+            None => issues.push(AlignIssue {
                 issue_type: "代码有文档无".into(),
                 api: format!("{}({})", api.name, api.params.join(", ")),
                 location: api.location.clone(),
@@ -625,7 +625,7 @@ pub fn compare_code_docs(code_apis: &[ApiSignature], doc_apis: &[ApiSignature]) 
             }),
             Some(doc) => {
                 if doc.params.len() != api.params.len() {
-                    issues.push(AuditIssue {
+                    issues.push(AlignIssue {
                         issue_type: "签名不一致".into(),
                         api: api.name.clone(),
                         location: doc.location.clone(),
@@ -638,7 +638,7 @@ pub fn compare_code_docs(code_apis: &[ApiSignature], doc_apis: &[ApiSignature]) 
     }
     for doc in doc_apis {
         if !code_apis.iter().any(|c| c.name == doc.name) {
-            issues.push(AuditIssue {
+            issues.push(AlignIssue {
                 issue_type: "文档有代码无".into(),
                 api: format!("{}({})", doc.name, doc.params.join(", ")),
                 location: doc.location.clone(),
@@ -961,13 +961,13 @@ pub fn project_refs(refs: &[TestRef]) -> Vec<TestRef> {
 }
 
 /// 边 2：代码 ↔ 测试
-pub fn compare_code_tests(code_apis: &[ApiSignature], test_refs: &[TestRef]) -> Vec<AuditIssue> {
+pub fn compare_code_tests(code_apis: &[ApiSignature], test_refs: &[TestRef]) -> Vec<AlignIssue> {
     let mut issues = Vec::new();
     // 外部/内置调用不属于项目 API，跳过
     for r in project_refs(test_refs) {
         match code_apis.iter().find(|c| c.name == r.name) {
             None => {
-                issues.push(AuditIssue {
+                issues.push(AlignIssue {
                     issue_type: "测试引用不存在".into(),
                     api: r.name.clone(),
                     location: r.location.clone(),
@@ -977,7 +977,7 @@ pub fn compare_code_tests(code_apis: &[ApiSignature], test_refs: &[TestRef]) -> 
             }
             Some(api) => {
                 if r.arg_count != api.params.len() {
-                    issues.push(AuditIssue {
+                    issues.push(AlignIssue {
                         issue_type: "签名不一致".into(),
                         api: api.name.clone(),
                         location: r.location.clone(),
@@ -992,12 +992,12 @@ pub fn compare_code_tests(code_apis: &[ApiSignature], test_refs: &[TestRef]) -> 
 }
 
 /// 边 3：测试 ↔ 文档
-pub fn compare_tests_docs(doc_apis: &[ApiSignature], test_refs: &[TestRef]) -> Vec<AuditIssue> {
+pub fn compare_tests_docs(doc_apis: &[ApiSignature], test_refs: &[TestRef]) -> Vec<AlignIssue> {
     let ref_names: BTreeSet<&str> = test_refs.iter().map(|r| r.name.as_str()).collect();
     let mut issues = Vec::new();
     for doc in doc_apis {
         if !ref_names.contains(doc.name.as_str()) {
-            issues.push(AuditIssue {
+            issues.push(AlignIssue {
                 issue_type: "文档声明无测试覆盖".into(),
                 api: format!("{}({})", doc.name, doc.params.join(", ")),
                 location: doc.location.clone(),
@@ -1016,14 +1016,14 @@ pub fn run_audit(
     root: &Path,
     config: Option<&AuditConfig>,
     excluded: impl Fn(&str) -> bool,
-) -> (AuditResult, Vec<String>) {
+) -> (AlignResult, Vec<String>) {
     let audit_cfg = config.cloned().unwrap_or_default();
     let code_paths = audit_cfg.code_paths();
     let test_paths = audit_cfg.test_paths();
     let doc_paths = audit_cfg.doc_paths();
 
     let mut parsers = all_parsers();
-    let mut result = AuditResult::default();
+    let mut result = AlignResult::default();
     result.code_apis = collect_code_apis(root, &code_paths, &excluded, &mut parsers);
     result.test_refs = collect_test_refs(root, &test_paths, &excluded, &mut parsers);
     result.doc_apis = collect_doc_apis(root, &doc_paths, &excluded);
@@ -1036,7 +1036,7 @@ pub fn run_audit(
         &code_paths,
         &doc_paths,
         &mut skipped,
-        &mut |result: &mut AuditResult| {
+        &mut |result: &mut AlignResult| {
             result
                 .issues
                 .extend(compare_code_docs(&result.code_apis, &result.doc_apis));
@@ -1050,7 +1050,7 @@ pub fn run_audit(
         &code_paths,
         &test_paths,
         &mut skipped,
-        &mut |result: &mut AuditResult| {
+        &mut |result: &mut AlignResult| {
             result
                 .issues
                 .extend(compare_code_tests(&result.code_apis, &result.test_refs));
@@ -1064,7 +1064,7 @@ pub fn run_audit(
         &doc_paths,
         &test_paths,
         &mut skipped,
-        &mut |result: &mut AuditResult| {
+        &mut |result: &mut AlignResult| {
             result
                 .issues
                 .extend(compare_tests_docs(&result.doc_apis, &result.test_refs));
@@ -1083,8 +1083,8 @@ fn run_edge(
     side_a: &[String],
     side_b: &[String],
     skipped: &mut Vec<String>,
-    compare: &mut dyn FnMut(&mut AuditResult),
-    result: &mut AuditResult,
+    compare: &mut dyn FnMut(&mut AlignResult),
+    result: &mut AlignResult,
 ) {
     if !audit_cfg.edge_enabled(edge) {
         return;
@@ -1229,7 +1229,7 @@ fn collect_doc_files(
 /// 终端输出
 pub fn write_terminal<W: std::io::Write>(
     writer: &mut W,
-    result: &AuditResult,
+    result: &AlignResult,
 ) -> Result<(), String> {
     if result.issues.is_empty() {
         writeln!(
@@ -1281,7 +1281,7 @@ pub fn write_terminal<W: std::io::Write>(
 }
 
 /// JSON 输出（机器可读，供 AI 直接消费）
-pub fn write_json<W: std::io::Write>(writer: &mut W, result: &AuditResult) -> Result<(), String> {
+pub fn write_json<W: std::io::Write>(writer: &mut W, result: &AlignResult) -> Result<(), String> {
     let issues: Vec<serde_json::Value> = result
         .issues
         .iter()
@@ -1762,8 +1762,8 @@ fn test_add() {
 
     #[test]
     fn test_json_output_shape() {
-        let result = AuditResult {
-            issues: vec![AuditIssue {
+        let result = AlignResult {
+            issues: vec![AlignIssue {
                 issue_type: "代码有文档无".into(),
                 api: "add(a, b)".into(),
                 location: "src/calc.py:1".into(),
@@ -1785,7 +1785,7 @@ fn test_add() {
 
     #[test]
     fn test_terminal_output_clean() {
-        let result = AuditResult::default();
+        let result = AlignResult::default();
         let mut buf = Vec::new();
         write_terminal(&mut buf, &result).unwrap();
         let out = String::from_utf8_lossy(&buf);

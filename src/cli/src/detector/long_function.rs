@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{Detector, Finding, Severity};
+use super::{CodeFinding, CodeSeverity, Detector};
 
 const MAY_THRESHOLD: usize = 30;
 const SHOULD_THRESHOLD: usize = 50;
@@ -34,7 +34,12 @@ impl Detector for LongFunctionDetector {
         "函数体过长"
     }
 
-    fn detect(&self, source: &str, tree: &tree_sitter::Tree, file_path: &PathBuf) -> Vec<Finding> {
+    fn detect(
+        &self,
+        source: &str,
+        tree: &tree_sitter::Tree,
+        file_path: &PathBuf,
+    ) -> Vec<CodeFinding> {
         let mut findings = Vec::new();
         super::walk_tree(tree, |node| {
             if FUNCTION_NODE_KINDS.contains(&node.kind()) {
@@ -47,7 +52,7 @@ impl Detector for LongFunctionDetector {
                     if self.skip_test_functions && is_likely_test_function(&node, source, &name) {
                         return;
                     }
-                    findings.push(Finding {
+                    findings.push(CodeFinding {
                         file_path: file_path.clone(),
                         line: start + 1,
                         column: 1,
@@ -62,13 +67,13 @@ impl Detector for LongFunctionDetector {
     }
 }
 
-fn classify(lines: usize) -> Option<Severity> {
+fn classify(lines: usize) -> Option<CodeSeverity> {
     if lines > MUST_THRESHOLD {
-        Some(Severity::Must)
+        Some(CodeSeverity::Must)
     } else if lines > SHOULD_THRESHOLD {
-        Some(Severity::Should)
+        Some(CodeSeverity::Should)
     } else if lines > MAY_THRESHOLD {
-        Some(Severity::May)
+        Some(CodeSeverity::May)
     } else {
         None
     }
@@ -173,7 +178,7 @@ mod tests {
         let (s, tree) = make_rust_tree(&source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::May);
+        assert_eq!(findings[0].severity, CodeSeverity::May);
         assert_eq!(findings[0].rule_id, "long-function");
     }
 
@@ -181,11 +186,11 @@ mod tests {
     fn test_classify() {
         assert_eq!(classify(10), None);
         assert_eq!(classify(30), None);
-        assert_eq!(classify(31), Some(Severity::May));
-        assert_eq!(classify(50), Some(Severity::May));
-        assert_eq!(classify(51), Some(Severity::Should));
-        assert_eq!(classify(80), Some(Severity::Should));
-        assert_eq!(classify(81), Some(Severity::Must));
+        assert_eq!(classify(31), Some(CodeSeverity::May));
+        assert_eq!(classify(50), Some(CodeSeverity::May));
+        assert_eq!(classify(51), Some(CodeSeverity::Should));
+        assert_eq!(classify(80), Some(CodeSeverity::Should));
+        assert_eq!(classify(81), Some(CodeSeverity::Must));
     }
 
     #[test]
@@ -318,7 +323,7 @@ mod tests {
         let findings =
             LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.dart"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::May);
+        assert_eq!(findings[0].severity, CodeSeverity::May);
         assert!(
             findings[0].message.contains("long"),
             "Dart function name should be 'long', got: {}",

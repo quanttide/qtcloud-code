@@ -17,11 +17,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::detector::Finding;
+use crate::detector::CodeFinding;
 
 /// LLM 增强后的 finding（原始信息不变 + 追加 LLM 判断）
 #[derive(Debug, Clone, Serialize)]
-pub struct EnrichedFinding {
+pub struct CodeEnrichedFinding {
     pub file: String,
     pub line: usize,
     pub column: usize,
@@ -67,7 +67,10 @@ const SYSTEM_PROMPT: &str = "你是资深代码审查员。用户会给你一个
 只输出 JSON，不要 markdown 代码块，不要额外文字。";
 
 /// 运行 LLM 阶段。`lint` 直接返回；`llm`/`deep` 在未配置 LLM 时回退 lint 并警告。
-pub fn run_llm_stage(mode: &str, findings: &[Finding]) -> Result<Vec<EnrichedFinding>, String> {
+pub fn run_llm_stage(
+    mode: &str,
+    findings: &[CodeFinding],
+) -> Result<Vec<CodeEnrichedFinding>, String> {
     match mode {
         "lint" => Ok(findings.iter().map(plain).collect()),
         "llm" | "deep" => {
@@ -94,8 +97,8 @@ pub fn run_llm_stage(mode: &str, findings: &[Finding]) -> Result<Vec<EnrichedFin
 }
 
 /// 无 LLM 增强的 finding（lint 模式）
-fn plain(finding: &Finding) -> EnrichedFinding {
-    EnrichedFinding {
+fn plain(finding: &CodeFinding) -> CodeEnrichedFinding {
+    CodeEnrichedFinding {
         file: finding.file_path.to_string_lossy().to_string(),
         line: finding.line,
         column: finding.column,
@@ -107,7 +110,7 @@ fn plain(finding: &Finding) -> EnrichedFinding {
 }
 
 /// 构造 LLM 输入（项目语言、每个 finding 的位置/规则/级别/片段）
-pub fn build_prompt(findings: &[Finding]) -> String {
+pub fn build_prompt(findings: &[CodeFinding]) -> String {
     let list: Vec<serde_json::Value> = findings
         .iter()
         .map(|f| {
@@ -147,8 +150,8 @@ pub fn parse_llm_response(content: &str) -> Vec<LlmAnnotation> {
 }
 
 /// 合并：注解按 file+line+rule_id 匹配 finding；语义注解追加为新 finding
-pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<EnrichedFinding> {
-    let mut out: Vec<EnrichedFinding> = findings
+pub fn merge(findings: &[CodeFinding], annotations: &[LlmAnnotation]) -> Vec<CodeEnrichedFinding> {
+    let mut out: Vec<CodeEnrichedFinding> = findings
         .iter()
         .map(|f| {
             let plain = plain(f);
@@ -158,7 +161,7 @@ pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<Enriche
                     && a.rule_id == f.rule_id
                     && (a.file.is_empty() || a.file == f.file_path.to_string_lossy())
             });
-            EnrichedFinding {
+            CodeEnrichedFinding {
                 llm: matched.map(|a| LlmInfo {
                     priority: if a.priority.is_empty() {
                         "medium".into()
@@ -178,7 +181,7 @@ pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<Enriche
         .collect();
 
     for a in annotations.iter().filter(|a| a.semantic) {
-        out.push(EnrichedFinding {
+        out.push(CodeEnrichedFinding {
             file: if a.file.is_empty() {
                 "<unknown>".into()
             } else {
@@ -257,15 +260,15 @@ pub fn call_llm(system: &str, prompt: &str, api_key: &str) -> Result<String, Str
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::detector::Severity;
+    use crate::detector::CodeSeverity;
     use std::path::PathBuf;
 
-    fn finding(rule: &str, line: usize, message: &str) -> Finding {
-        Finding {
+    fn finding(rule: &str, line: usize, message: &str) -> CodeFinding {
+        CodeFinding {
             file_path: PathBuf::from("src/main.rs"),
             line,
             column: 1,
-            severity: Severity::Should,
+            severity: CodeSeverity::Should,
             rule_id: rule.to_string(),
             message: message.to_string(),
         }

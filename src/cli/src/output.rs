@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::time::SystemTime;
 
-use crate::detector::{Finding, Severity};
-use crate::llm::EnrichedFinding;
+use crate::detector::{CodeFinding, CodeSeverity};
+use crate::llm::CodeEnrichedFinding;
 
 macro_rules! writeln_err {
     ($dst:expr $(, $arg:expr)* $(,)?) => {
@@ -14,7 +14,7 @@ macro_rules! writeln_err {
 /// review 的 JSON 输出（含 LLM 增强）——docs/dev/review.md 定义的格式
 pub fn write_review_json<W: Write>(
     writer: &mut W,
-    findings: &[EnrichedFinding],
+    findings: &[CodeEnrichedFinding],
 ) -> Result<(), String> {
     let llm_count = findings.iter().filter(|f| f.llm.is_some()).count();
     let semantic_count = findings
@@ -35,7 +35,7 @@ pub fn write_review_json<W: Write>(
 /// review 的终端输出（含 LLM 增强行）
 pub fn write_review_terminal<W: Write>(
     writer: &mut W,
-    findings: &[EnrichedFinding],
+    findings: &[CodeEnrichedFinding],
 ) -> Result<(), String> {
     if findings.is_empty() {
         writeln_err!(writer, "未发现问题")?;
@@ -70,7 +70,7 @@ pub fn write_review_terminal<W: Write>(
     Ok(())
 }
 
-pub fn write_json<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
+pub fn write_json<W: Write>(writer: &mut W, findings: &[CodeFinding]) -> Result<(), String> {
     let output: Vec<serde_json::Value> = findings
         .iter()
         .map(|f| {
@@ -88,7 +88,7 @@ pub fn write_json<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), 
     writeln_err!(writer, "{}", json)
 }
 
-pub fn write_terminal<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
+pub fn write_terminal<W: Write>(writer: &mut W, findings: &[CodeFinding]) -> Result<(), String> {
     if findings.is_empty() {
         writeln_err!(writer, "未发现问题")?;
         return Ok(());
@@ -96,9 +96,9 @@ pub fn write_terminal<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<
 
     for f in findings {
         let (icon, tag) = match f.severity {
-            Severity::Must => ("🔴", "MUST"),
-            Severity::Should => ("🟡", "SHOULD"),
-            Severity::May => ("🔵", "MAY"),
+            CodeSeverity::Must => ("🔴", "MUST"),
+            CodeSeverity::Should => ("🟡", "SHOULD"),
+            CodeSeverity::May => ("🔵", "MAY"),
         };
         writeln_err!(
             writer,
@@ -114,7 +114,7 @@ pub fn write_terminal<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<
     Ok(())
 }
 
-pub fn write_status<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
+pub fn write_status<W: Write>(writer: &mut W, findings: &[CodeFinding]) -> Result<(), String> {
     let timestamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
@@ -139,19 +139,19 @@ pub fn write_status<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<()
     write_status_details(writer, findings)
 }
 
-fn write_status_summary<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
+fn write_status_summary<W: Write>(writer: &mut W, findings: &[CodeFinding]) -> Result<(), String> {
     let total = findings.len();
     let must = findings
         .iter()
-        .filter(|f| f.severity == Severity::Must)
+        .filter(|f| f.severity == CodeSeverity::Must)
         .count();
     let should = findings
         .iter()
-        .filter(|f| f.severity == Severity::Should)
+        .filter(|f| f.severity == CodeSeverity::Should)
         .count();
     let may = findings
         .iter()
-        .filter(|f| f.severity == Severity::May)
+        .filter(|f| f.severity == CodeSeverity::May)
         .count();
 
     writeln_err!(writer, "## 汇总")?;
@@ -170,21 +170,21 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn sample_findings() -> Vec<Finding> {
+    fn sample_findings() -> Vec<CodeFinding> {
         vec![
-            Finding {
+            CodeFinding {
                 file_path: PathBuf::from("src/main.rs"),
                 line: 10,
                 column: 5,
-                severity: Severity::Should,
+                severity: CodeSeverity::Should,
                 rule_id: "long-function".into(),
                 message: "函数 `run` 共 55 行".into(),
             },
-            Finding {
+            CodeFinding {
                 file_path: PathBuf::from("src/lib.rs"),
                 line: 3,
                 column: 1,
-                severity: Severity::May,
+                severity: CodeSeverity::May,
                 rule_id: "long-parameter-list".into(),
                 message: "函数 `f` 有 5 个参数".into(),
             },
@@ -242,11 +242,11 @@ mod tests {
     }
 }
 
-fn write_status_details<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
+fn write_status_details<W: Write>(writer: &mut W, findings: &[CodeFinding]) -> Result<(), String> {
     writeln_err!(writer, "## 详情")?;
     writeln_err!(writer)?;
 
-    let mut by_file: BTreeMap<String, Vec<&Finding>> = BTreeMap::new();
+    let mut by_file: BTreeMap<String, Vec<&CodeFinding>> = BTreeMap::new();
     for f in findings {
         let key = f.file_path.to_string_lossy().to_string();
         by_file.entry(key).or_default().push(f);
@@ -256,9 +256,9 @@ fn write_status_details<W: Write>(writer: &mut W, findings: &[Finding]) -> Resul
         writeln_err!(writer, "- **{}** ({} 项)", file, findings.len())?;
         for f in findings {
             let (icon, tag) = match f.severity {
-                Severity::Must => ("🔴", "MUST"),
-                Severity::Should => ("🟡", "SHOULD"),
-                Severity::May => ("🔵", "MAY"),
+                CodeSeverity::Must => ("🔴", "MUST"),
+                CodeSeverity::Should => ("🟡", "SHOULD"),
+                CodeSeverity::May => ("🔵", "MAY"),
             };
             writeln_err!(
                 writer,

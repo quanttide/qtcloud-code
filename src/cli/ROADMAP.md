@@ -16,7 +16,7 @@
 
 ## 证据主线（设计方向）
 
-**证据与发现分层**（对齐 `quanttide-audit-toolkit` 四聚合）：证据是未判定的素材（reflect 的切片/数据流/调用图与命中行材料），发现是挂了证据的判定（review 规则命中、audit 对齐差异——携 criterion、待补 `evidence[]`）；LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`Evidence`/`EvidenceChain` 统一信封，即 `AuditEvidence` 的结构化形式；`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；问题层按四聚合适配与 LLM 因果解释器登记下轮。设计全文见 [docs/dev-guide/index.md](docs/dev-guide/index.md) 证据主线与 [docs/dev-guide/reflect.md](docs/dev-guide/reflect.md) 证据模型。
+**证据与发现分层**（对齐 `quanttide-audit-toolkit` 四聚合）：证据是未判定的素材（reflect 的切片/数据流/调用图与命中行材料），发现是挂了证据的判定（review 规则命中、audit 对齐差异——携 criterion、待补 `evidence[]`）；LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`CodeEvidence`/`CodeEvidenceChain` 统一信封，即 `AuditEvidence` 的结构化形式；`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；问题层按四聚合适配与 LLM 因果解释器登记下轮。设计全文见 [docs/dev-guide/index.md](docs/dev-guide/index.md) 证据主线与 [docs/dev-guide/reflect.md](docs/dev-guide/reflect.md) 证据模型。
 
 ## 现状与差距
 
@@ -40,7 +40,7 @@ reflect 四个子命令当前在 `main.rs` 里是行号/文本启发式实现，
 
 ```text
 src/reflect/
-├── mod.rs        SliceEntry / FlowEntry / Suggestion 类型与子模块导出
+├── mod.rs        SliceEntry / FlowEntry / CodeSuggestion 类型与子模块导出
 ├── slice.rs      backward_slice / flatten_stmts
 ├── dataflow.rs   trace_variable
 ├── analysis.rs   forward_slice / build_call_graph / impact_analysis / code_search / type_info
@@ -54,7 +54,7 @@ src/reflect/
 
 ## 阶段二 重构 main.rs
 
-先落证据模块 `src/evidence.rs`：`Evidence` 统一信封（kind/file/line/text + 按 kind 的结构化负载）与 `EvidenceChain`，`count_evidence`、`anchor_level` 迁入并随迁分级单测——归属层就此落定（证据主线）；reflect 六个输出结构体经 `From` 转入，`examples/evidence.rs` 改用 lib 评证、删除内联计数。
+先落证据模块 `src/evidence.rs`：`CodeEvidence` 统一信封（kind/file/line/text + 按 kind 的结构化负载）与 `CodeEvidenceChain`，`count_evidence`、`anchor_level` 迁入并随迁分级单测——归属层就此落定（证据主线）；reflect 六个输出结构体经 `From` 转入，`examples/evidence.rs` 改用 lib 评证、删除内联计数。
 
 `build_call_graph` 的 callee 语义先按真实案例暴露的问题拆解（D15）：取终末方法短名并剔除闭包体、项目内调用过滤复用 `audit::project_refs`、输出单行限长；语义定型后再起草 `graph` JSON 契约——取证据信封形态（kind/line/text + 函数节点与调用边），直接落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）。`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变，并移植 `main.rs` 既有的多语言函数定位——lab 实现仅识别 Rust 节点，直接接线会在 py/go 上回归（py 探针已验证，详见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷）。
 

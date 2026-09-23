@@ -147,5 +147,5 @@ path = "tests/reflect.rs"
 ## 计划中的变更（阶段二/三）
 
 - 阶段二 D9：四个子命令断言按新实现全部重写，对照退回 git 历史人工比对；
-- 阶段二 D10：`--json` 断言按 `Evidence` 证据信封形态更新（契约起草后同步本文档）；
+- 阶段二 D10：`--json` 断言按 `CodeEvidence` 证据信封形态更新（契约起草后同步本文档）；
 - 阶段三：新增真实案例快照测试——`graph` 输出在 `assets/fixtures/search.rs` 上锁定防回退（见 ROADMAP）。

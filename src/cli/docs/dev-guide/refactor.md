@@ -8,7 +8,7 @@
 - 实现：仅 `rename`（符号重命名）——设计远大于实现
 - 替代：修复主路径由 `review --mode deep`（LLM patch）与 AI 直接修正承担——refactor 命令被架空
 - 处置：从体系移除；rename 能力如有需要并入独立工具
-- 证据主线：原设计的输入 `evidence_chain` 即证据主线的 `EvidenceChain`（阶段二落地），该输入角色由 reflect/证据层承担；refactor 维持移除，不占证据主线位
+- 证据主线：原设计的输入 `evidence_chain` 即证据主线的 `CodeEvidenceChain`（阶段二落地），该输入角色由 reflect/证据层承担；refactor 维持移除，不占证据主线位
 
 ## 核心架构
 
@@ -89,7 +89,7 @@ patch 输出（默认 dry-run）
 +    scan_files(&root, &parsers, &detectors, &mut findings)
 +}
 +
-+fn scan_files(root: &Path, parsers: &mut [...], detectors: &[...], findings: &mut Vec<Finding>) {
++fn scan_files(root: &Path, parsers: &mut [...], detectors: &[...], findings: &mut Vec<CodeFinding>) {
 -    for entry in walkdir::WalkDir::new(&root)... {
 -        scan_file(...);
 -    }

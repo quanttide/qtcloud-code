@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{Detector, Finding, Severity};
+use super::{CodeFinding, CodeSeverity, Detector};
 
 const MAY_THRESHOLD: usize = 4;
 const SHOULD_THRESHOLD: usize = 6;
@@ -24,7 +24,12 @@ impl Detector for LongParameterListDetector {
         "参数列表过长"
     }
 
-    fn detect(&self, source: &str, tree: &tree_sitter::Tree, file_path: &PathBuf) -> Vec<Finding> {
+    fn detect(
+        &self,
+        source: &str,
+        tree: &tree_sitter::Tree,
+        file_path: &PathBuf,
+    ) -> Vec<CodeFinding> {
         let mut findings = Vec::new();
         super::walk_tree(tree, |node| {
             if FUNCTION_NODE_KINDS.contains(&node.kind()) {
@@ -35,7 +40,7 @@ impl Detector for LongParameterListDetector {
 
                 if let Some(severity) = classify(param_count) {
                     let name = extract_function_name(&node, source);
-                    findings.push(Finding {
+                    findings.push(CodeFinding {
                         file_path: file_path.clone(),
                         line: node.start_position().row + 1,
                         column: 1,
@@ -114,13 +119,13 @@ fn count_identifiers_in_node(node: &tree_sitter::Node) -> usize {
     count
 }
 
-fn classify(count: usize) -> Option<Severity> {
+fn classify(count: usize) -> Option<CodeSeverity> {
     if count > MUST_THRESHOLD {
-        Some(Severity::Must)
+        Some(CodeSeverity::Must)
     } else if count > SHOULD_THRESHOLD {
-        Some(Severity::Should)
+        Some(CodeSeverity::Should)
     } else if count > MAY_THRESHOLD {
-        Some(Severity::May)
+        Some(CodeSeverity::May)
     } else {
         None
     }
@@ -190,18 +195,18 @@ mod tests {
             make_rust_tree("fn f(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32, g: i32) {}");
         let findings = LongParameterListDetector.detect(&source, &tree, &PathBuf::from("f.rs"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::Should);
+        assert_eq!(findings[0].severity, CodeSeverity::Should);
     }
 
     #[test]
     fn test_classify() {
         assert_eq!(classify(2), None);
         assert_eq!(classify(4), None);
-        assert_eq!(classify(5), Some(Severity::May));
-        assert_eq!(classify(6), Some(Severity::May));
-        assert_eq!(classify(7), Some(Severity::Should));
-        assert_eq!(classify(9), Some(Severity::Should));
-        assert_eq!(classify(10), Some(Severity::Must));
+        assert_eq!(classify(5), Some(CodeSeverity::May));
+        assert_eq!(classify(6), Some(CodeSeverity::May));
+        assert_eq!(classify(7), Some(CodeSeverity::Should));
+        assert_eq!(classify(9), Some(CodeSeverity::Should));
+        assert_eq!(classify(10), Some(CodeSeverity::Must));
     }
 
     #[test]
@@ -214,7 +219,7 @@ mod tests {
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.py"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::Should);
+        assert_eq!(findings[0].severity, CodeSeverity::Should);
     }
 
     #[test]
@@ -227,7 +232,7 @@ mod tests {
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.go"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::Should);
+        assert_eq!(findings[0].severity, CodeSeverity::Should);
     }
 
     #[test]
@@ -252,7 +257,7 @@ mod tests {
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.dart"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::Should);
+        assert_eq!(findings[0].severity, CodeSeverity::Should);
     }
 
     #[test]

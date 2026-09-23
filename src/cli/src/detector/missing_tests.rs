@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::{Finding, Severity};
+use super::{CodeFinding, CodeSeverity};
 
 pub const RULE_ID: &str = "missing-tests";
 pub const DESCRIPTION: &str = "源文件缺少对应测试";
@@ -11,7 +11,7 @@ pub fn check_missing_tests(
     project_root: &Path,
     source_files: &[PathBuf],
     config: &Option<crate::config::ContractConfig>,
-) -> Vec<Finding> {
+) -> Vec<CodeFinding> {
     let mut findings = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -56,11 +56,11 @@ pub fn check_missing_tests(
             continue;
         }
 
-        findings.push(Finding {
+        findings.push(CodeFinding {
             file_path: file.clone(),
             line: 1,
             column: 1,
-            severity: Severity::Must,
+            severity: CodeSeverity::Must,
             rule_id: RULE_ID.to_string(),
             message: format!("`{}` 缺少对应测试", rel.display()),
         });
@@ -266,7 +266,7 @@ mod tests {
             &None,
         );
         assert_eq!(findings.len(), 2);
-        assert_eq!(findings[0].severity, Severity::Must);
+        assert_eq!(findings[0].severity, CodeSeverity::Must);
         assert_eq!(findings[0].rule_id, "missing-tests");
     }
 

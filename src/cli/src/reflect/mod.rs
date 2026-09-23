@@ -15,7 +15,7 @@ pub struct FlowEntry {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct Suggestion {
+pub struct CodeSuggestion {
     pub line: usize,
     pub kind: &'static str,
     pub text: String,
@@ -26,7 +26,7 @@ pub mod dataflow;
 pub mod slice;
 pub mod suggest;
 
-pub use analysis::{CallGraphNode, ImpactResult, TypeInfo};
+pub use analysis::{CallGraphNode, CodeTypeInfo, ImpactResult};
 pub use analysis::{build_call_graph, code_search, forward_slice, impact_analysis, type_info};
 pub use dataflow::trace_variable;
 pub use slice::{backward_slice, flatten_stmts};

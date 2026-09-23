@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{Detector, Finding, Severity};
+use super::{CodeFinding, CodeSeverity, Detector};
 
 const MAY_THRESHOLD: usize = 3;
 const SHOULD_THRESHOLD: usize = 5;
@@ -17,14 +17,19 @@ impl Detector for UnsafeBlockDetector {
         "unsafe 块包含过多语句"
     }
 
-    fn detect(&self, _source: &str, tree: &tree_sitter::Tree, file_path: &PathBuf) -> Vec<Finding> {
+    fn detect(
+        &self,
+        _source: &str,
+        tree: &tree_sitter::Tree,
+        file_path: &PathBuf,
+    ) -> Vec<CodeFinding> {
         let mut findings = Vec::new();
         super::walk_tree(tree, |node| {
             if node.kind() == "unsafe_block" {
                 let stmt_count = count_block_statements(&node);
                 if let Some(severity) = classify(stmt_count) {
                     let pos = node.start_position();
-                    findings.push(Finding {
+                    findings.push(CodeFinding {
                         file_path: file_path.clone(),
                         line: pos.row + 1,
                         column: pos.column + 1,
@@ -69,13 +74,13 @@ fn count_block_statements(node: &tree_sitter::Node) -> usize {
     count
 }
 
-fn classify(stmts: usize) -> Option<Severity> {
+fn classify(stmts: usize) -> Option<CodeSeverity> {
     if stmts > MUST_THRESHOLD {
-        Some(Severity::Must)
+        Some(CodeSeverity::Must)
     } else if stmts > SHOULD_THRESHOLD {
-        Some(Severity::Should)
+        Some(CodeSeverity::Should)
     } else if stmts > MAY_THRESHOLD {
-        Some(Severity::May)
+        Some(CodeSeverity::May)
     } else {
         None
     }
@@ -112,17 +117,17 @@ mod tests {
         let (s, tree) = make_rust_tree(&source);
         let findings = UnsafeBlockDetector.detect(&s, &tree, &PathBuf::from("f.rs"));
         assert!(!findings.is_empty());
-        assert_eq!(findings[0].severity, Severity::Should);
+        assert_eq!(findings[0].severity, CodeSeverity::Should);
     }
 
     #[test]
     fn test_classify() {
         assert_eq!(classify(2), None);
         assert_eq!(classify(3), None);
-        assert_eq!(classify(4), Some(Severity::May));
-        assert_eq!(classify(5), Some(Severity::May));
-        assert_eq!(classify(6), Some(Severity::Should));
-        assert_eq!(classify(8), Some(Severity::Should));
-        assert_eq!(classify(9), Some(Severity::Must));
+        assert_eq!(classify(4), Some(CodeSeverity::May));
+        assert_eq!(classify(5), Some(CodeSeverity::May));
+        assert_eq!(classify(6), Some(CodeSeverity::Should));
+        assert_eq!(classify(8), Some(CodeSeverity::Should));
+        assert_eq!(classify(9), Some(CodeSeverity::Must));
     }
 }

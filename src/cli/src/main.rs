@@ -4,7 +4,7 @@ use std::process;
 
 use clap::{Parser, Subcommand};
 
-use qtcloud_code_cli::detector::Finding;
+use qtcloud_code_cli::detector::CodeFinding;
 
 #[derive(Parser)]
 #[command(name = "qtcloud-code", about = "多语言代码静态分析与质量检测")]
@@ -292,7 +292,7 @@ fn resolve_root(path: &str) -> Result<PathBuf, String> {
 
 fn write_output(
     format: &str,
-    findings: &[qtcloud_code_cli::llm::EnrichedFinding],
+    findings: &[qtcloud_code_cli::llm::CodeEnrichedFinding],
 ) -> Result<(), String> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -302,7 +302,7 @@ fn write_output(
     }
 }
 
-fn write_status_file(root: &Path, findings: &[Finding]) -> Result<(), String> {
+fn write_status_file(root: &Path, findings: &[CodeFinding]) -> Result<(), String> {
     let status_path = find_project_root(root).map(|p| p.join("STATUS.md"));
     let Some(status_path) = status_path else {
         eprintln!("警告: 未找到项目根目录（Cargo.toml），跳过 STATUS.md 写入");

@@ -3,6 +3,8 @@
 ## [未发布]
 
 - **破坏性**：LLM API Key 环境变量 `QTTCODE_LLM_API_KEY` 更名为 `LLM_API_KEY`（`QTTCODE_LLM_BASE_URL`、`QTTCODE_LLM_MODEL` 不变）
+- **破坏性（lib API 改名，域命名对齐家族惯例）**：`Finding→CodeFinding`、`EnrichedFinding→CodeEnrichedFinding`、`Severity→CodeSeverity`、`Suggestion→CodeSuggestion`、`TypeInfo→CodeTypeInfo`、`SymbolTable/Symbol/SymbolKind→CodeSymbol*`、`RefLocation→CodeRefLocation`；`AuditIssue→AlignIssue`、`AuditResult→AlignResult`（`Audit*` 前缀让还审计域）
+- 规划定名：证据信封 `CodeEvidence` / `CodeEvidenceChain`（随 `src/evidence.rs` 阶段二落地）
 
 ## [0.3.1] — 2026-08-16
 

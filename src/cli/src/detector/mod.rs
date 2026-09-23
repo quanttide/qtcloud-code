@@ -1,17 +1,17 @@
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-pub struct Finding {
+pub struct CodeFinding {
     pub file_path: PathBuf,
     pub line: usize,
     pub column: usize,
-    pub severity: Severity,
+    pub severity: CodeSeverity,
     pub rule_id: String,
     pub message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Severity {
+pub enum CodeSeverity {
     Must,
     Should,
     May,
@@ -20,7 +20,12 @@ pub enum Severity {
 pub trait Detector {
     fn rule_id(&self) -> &'static str;
     fn description(&self) -> &'static str;
-    fn detect(&self, source: &str, tree: &tree_sitter::Tree, file_path: &PathBuf) -> Vec<Finding>;
+    fn detect(
+        &self,
+        source: &str,
+        tree: &tree_sitter::Tree,
+        file_path: &PathBuf,
+    ) -> Vec<CodeFinding>;
 }
 
 pub fn walk_tree<F: FnMut(tree_sitter::Node)>(tree: &tree_sitter::Tree, mut f: F) {

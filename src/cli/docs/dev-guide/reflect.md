@@ -17,23 +17,23 @@
 | `SliceEntry` | file, line, text | slice / forward_slice 等 |
 | `FlowEntry` | var, from, line | trace |
 | `CallGraphNode` | name, line, callees, callers | graph |
-| `Suggestion` | line, kind, text | suggest |
+| `CodeSuggestion` | line, kind, text | suggest |
 | `ImpactResult` | def_line, var_name, forward_usages, callees | impact_analysis |
-| `TypeInfo` | var, line, type_annotation | type_info |
+| `CodeTypeInfo` | var, line, type_annotation | type_info |
 
 目标（阶段二，`src/evidence.rs`）：
 
-- `Evidence` 统一信封：`kind` + `file` + `line` + `text` + 按 kind 的结构化负载（enum payload），六个结构体经 `From` 转入；
-- `EvidenceChain`：有序证据集 + 来源与目标（文件、目标行/变量）——`examples/evidence.rs` 里 `chain_text` 的 lib 化；
+- `CodeEvidence` 统一信封：`kind` + `file` + `line` + `text` + 按 kind 的结构化负载（enum payload），六个结构体经 `From` 转入；
+- `CodeEvidenceChain`：有序证据集 + 来源与目标（文件、目标行/变量）——`examples/evidence.rs` 里 `chain_text` 的 lib 化；
 - `count_evidence` / `anchor_level` 随迁入同模块——评证与证据同居，归属层就此落定；
-- 对齐家族四聚合：`Evidence` 即 `AuditEvidence` 的结构化形式（补 `kind`/`file`/`line`），家族唯一词汇以 `quanttide-audit-toolkit` 为准。
+- 对齐家族四聚合：`CodeEvidence` 即 `AuditEvidence` 的结构化形式（补 `kind`/`file`/`line`），家族唯一词汇以 `quanttide-audit-toolkit` 为准。
 
 ## 证据流水线（取 → 排 → 用 → 评）
 
 | 步骤 | 职责 | 现在在哪 | 目标与计划 |
 |:--|:--|:--|:--|
 | 取证据 | 四个子命令产出确定性证据 | `reflect::*`（已实现） | 阶段二接线到 CLI |
-| 排证据 | 同一证据集的有序组织（正/反向） | example 内 `chain_text` | `EvidenceChain`，阶段二 |
+| 排证据 | 同一证据集的有序组织（正/反向） | example 内 `chain_text` | `CodeEvidenceChain`，阶段二 |
 | 用证据 | 证据链 → LLM prompt → 结论 | example 内拼 prompt + `llm::call_llm` | lib 解释器登记下轮 |
 | 评证据 | 结论文本的证据引用计数分级 | example 内 `count_evidence` | 迁入 `evidence` 模块，阶段二 |
 
@@ -133,7 +133,7 @@ LLM 因果解释：
 
 ## 输出格式
 
-`--json` 时四个子命令各输出一个顶层数组（阶段二统一为 `Evidence` 信封，契约以 D10 起草为准）：
+`--json` 时四个子命令各输出一个顶层数组（阶段二统一为 `CodeEvidence` 信封，契约以 D10 起草为准）：
 
 | 子命令 | 数组元素字段 | 实现状态 |
 |:--|:--|:--|
@@ -142,7 +142,7 @@ LLM 因果解释：
 | graph | `{line, name}` | 桩输出（调用数恒为 0），阶段二重设计 |
 | suggest | `{line, kind, text}` | 文本实现，保留 |
 
-`investigations` + `llm_insight` 聚合格式随 `EvidenceChain` 落地（阶段二起步，解释字段待用证阶段补）；reflect 当前不接 LLM，LLM 与切片的对照实验见 `examples/evidence.rs`。
+`investigations` + `llm_insight` 聚合格式随 `CodeEvidenceChain` 落地（阶段二起步，解释字段待用证阶段补）；reflect 当前不接 LLM，LLM 与切片的对照实验见 `examples/evidence.rs`。
 
 ## 命令行
 

@@ -25,7 +25,7 @@ qtcloud-code audit --contract contract.yaml
    └─ 问题清单                          └─ findings
           └───────── file + line ─────────┘
                       ▼ 定向取证接口
-证据层     reflect——只举证，不提问 → Evidence / EvidenceChain（阶段二）
+证据层     reflect——只举证，不提问 → CodeEvidence / CodeEvidenceChain（阶段二）
 ```
 
 audit 与 review 并列出问题、维度不同（对齐 vs 质量），互不替代——audit 不是被拆进 review/reflect；`audit → review` 只是门禁次序。reflect/refactor 已降级或移除（见 [index.md](index.md) 历史与降级工具），不构成流水线环节。

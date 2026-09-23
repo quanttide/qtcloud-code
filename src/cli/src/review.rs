@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::config::{self, ContractConfig};
-use crate::detector::{Detector, Finding};
+use crate::detector::{CodeFinding, Detector};
 use crate::parser::LanguageParser;
 
 /// 全部规则 id：文件级检测器 + 编译/项目级规则
@@ -41,7 +41,7 @@ fn create_detectors(config: &Option<ContractConfig>) -> Vec<Box<dyn Detector>> {
 pub fn collect_findings(
     root: &Path,
     cli_rules: &Option<Vec<String>>,
-) -> Result<Vec<Finding>, String> {
+) -> Result<Vec<CodeFinding>, String> {
     let config = config::load_contract(root);
     let enabled_rules = config::resolve_enabled_rules(cli_rules, &config, &all_rule_ids());
     let all_detectors = create_detectors(&config);
@@ -51,7 +51,7 @@ pub fn collect_findings(
         .collect();
 
     let mut parsers: Vec<Box<dyn LanguageParser>> = crate::audit::all_parsers();
-    let mut all_findings: Vec<Finding> = Vec::new();
+    let mut all_findings: Vec<CodeFinding> = Vec::new();
     let mut source_files: Vec<PathBuf> = Vec::new();
 
     for entry in walkdir::WalkDir::new(root)
@@ -99,7 +99,7 @@ fn scan_file(
     entry: &walkdir::DirEntry,
     parsers: &mut [Box<dyn LanguageParser>],
     detectors: &[Box<dyn Detector>],
-    findings: &mut Vec<Finding>,
+    findings: &mut Vec<CodeFinding>,
 ) {
     let file_path = entry.path();
     let Some(ext) = file_path.extension().and_then(|e| e.to_str()) else {

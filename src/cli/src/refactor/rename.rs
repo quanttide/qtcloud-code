@@ -5,34 +5,34 @@ use crate::walk::walk_all;
 
 /// 符号表：符号定义 → 所有引用位置
 #[derive(Debug, Clone)]
-pub struct SymbolTable {
-    pub symbols: Vec<Symbol>,
+pub struct CodeSymbolTable {
+    pub symbols: Vec<CodeSymbol>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Symbol {
+pub struct CodeSymbol {
     pub name: String,
-    pub kind: SymbolKind,
+    pub kind: CodeSymbolKind,
     pub def_file: PathBuf,
     pub def_line: usize,
-    pub refs: Vec<RefLocation>,
+    pub refs: Vec<CodeRefLocation>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum SymbolKind {
+pub enum CodeSymbolKind {
     Function,
     Variable,
     Module,
 }
 
 #[derive(Debug, Clone)]
-pub struct RefLocation {
+pub struct CodeRefLocation {
     pub file: PathBuf,
     pub line: usize,
 }
 
 /// 构建符号表
-pub fn build_symbol_table(source: &str, tree: &tree_sitter::Tree, file: &Path) -> SymbolTable {
+pub fn build_symbol_table(source: &str, tree: &tree_sitter::Tree, file: &Path) -> CodeSymbolTable {
     let root = tree.root_node();
     let mut symbols = Vec::new();
 
@@ -74,7 +74,7 @@ pub fn build_symbol_table(source: &str, tree: &tree_sitter::Tree, file: &Path) -
                     .and_then(|nn| nn.utf8_text(source.as_bytes()).ok())
                 {
                     if callee == *name {
-                        refs.push(RefLocation {
+                        refs.push(CodeRefLocation {
                             file: file.to_path_buf(),
                             line: n.start_position().row + 1,
                         });
@@ -82,16 +82,16 @@ pub fn build_symbol_table(source: &str, tree: &tree_sitter::Tree, file: &Path) -
                 }
             }
         });
-        symbols.push(Symbol {
+        symbols.push(CodeSymbol {
             name: name.to_string(),
-            kind: SymbolKind::Function,
+            kind: CodeSymbolKind::Function,
             def_file: file.to_path_buf(),
             def_line: *def_line,
             refs,
         });
     }
 
-    SymbolTable { symbols }
+    CodeSymbolTable { symbols }
 }
 
 #[cfg(test)]
@@ -100,17 +100,17 @@ mod tests {
 
     #[test]
     fn test_rename_symbol() {
-        let sym = Symbol {
+        let sym = CodeSymbol {
             name: "foo".into(),
-            kind: SymbolKind::Function,
+            kind: CodeSymbolKind::Function,
             def_file: PathBuf::from("src/lib.rs"),
             def_line: 5,
-            refs: vec![RefLocation {
+            refs: vec![CodeRefLocation {
                 file: PathBuf::from("src/main.rs"),
                 line: 10,
             }],
         };
-        let table = SymbolTable { symbols: vec![sym] };
+        let table = CodeSymbolTable { symbols: vec![sym] };
         let r = rename_symbol(&table, "foo", "bar");
         assert_eq!(r.len(), 2);
         assert_eq!(r.get("src/lib.rs:5").unwrap(), "bar");
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_rename_symbol_no_match() {
-        let table = SymbolTable { symbols: vec![] };
+        let table = CodeSymbolTable { symbols: vec![] };
         assert!(rename_symbol(&table, "foo", "bar").is_empty());
     }
 
@@ -181,7 +181,7 @@ mod tests {
 
 /// 重命名符号：生成替换映射
 pub fn rename_symbol(
-    table: &SymbolTable,
+    table: &CodeSymbolTable,
     old_name: &str,
     new_name: &str,
 ) -> HashMap<String, String> {
