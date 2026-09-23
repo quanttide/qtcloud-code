@@ -17,20 +17,23 @@ qtcloud-code audit --contract contract.yaml
 绿 ✅（对齐）          红 ❌（问题清单 → AI 按清单修正 → 再 audit）
 ```
 
-## 与 3R 的关系
+## 在体系中的位置
 
 ```
-audit ──→ review ──→ reflect ──→ refactor
- │           │           │           │
- │           │           │           └─ patch（代码修改）
- │           │           └─ 理解层（LLM 分析）
- │           └─ 检测层（规则引擎 + LLM）
- └─ 交付约束层（对齐校验——代码↔测试↔文档）
+audit → review（双约束核心）
+  │         │
+  │         └─ 定向取证入口：finding 的 file + line → reflect
+  └─ 最前：AI 交付先过对齐审计，不过不进 review
 ```
 
-- **audit 在 3R 之前**：AI 交付时先过对齐审计（约束驱动生成——生成前约束定义、生成后校验）
+reflect/refactor 已降级或移除（见 [index.md](index.md) 历史与降级工具），不构成流水线环节。
+
 - **audit 与 review 分工**：audit 查**对齐**（代码↔测试↔文档的一致性，机器可判定）；review 查**质量**（代码可疑点，规则引擎 + LLM）
 - 下层不能跳过：audit 不过不进 review
+
+## 与证据主线的关系
+
+对齐差异是机判的**确定性证据**（第二证据源）——`{类型, API, 位置, 期望, 实际}` 可复核、零 LLM 判断；与 reflect 分析输出同属证据层，输出适配 `Evidence` 信封登记下轮（见 [index.md](index.md) 证据主线）。
 
 ## 校验规则（三边）
 
@@ -87,5 +90,5 @@ audit ──→ review ──→ reflect ──→ refactor
 
 ## 关联
 
-- [index.md](index.md)：3R 架构总览
+- [index.md](index.md)：证据主线与架构总览
 - 实验验证：`quanttide-laboratory-of-software-engineering/experiments/code-doc-code-loop`（代码↔文档边已实证）

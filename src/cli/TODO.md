@@ -9,10 +9,13 @@
 
 ## 阶段二 重构 main.rs
 
+- [ ] `src/evidence.rs`：`Evidence` / `EvidenceChain` 统一信封，`count_evidence`、`anchor_level` 迁入并随迁 3 个分级单测（归属层落定）
+- [ ] reflect 六个输出结构体实现 `From` 转 `Evidence`（信封 kind + 结构化负载）
+- [ ] `examples/evidence.rs` 改用 lib 评证，删除内联计数（分级输出不变）
 - [ ] `build_call_graph` callee 归一化：取终末方法短名、剔除闭包体（D15 拆解）
 - [ ] 项目内调用过滤复用 `audit::project_refs`，外部/标准库调用按策略处理（D15 拆解）
 - [ ] callee 输出单行限长，防长链撑爆输出与 JSON 契约（D15 拆解）
-- [ ] 起草 `graph` 新 JSON 契约（函数节点加调用边），语义定型后落入 `docs/user-guide/reflect.md`，契约先于测试改动
+- [ ] 起草 `graph` JSON 契约：证据信封形态（kind/line/text + 函数节点与调用边），语义定型后落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）
 - [ ] 多语言节点识别：slice/trace/graph 接线时移植 `main.rs` 的多语言函数定位与声明识别（lab 仅 Rust，py 探针见 dev-guide/reflect.md）
 - [ ] `suggest` 词表按真实案例校准：cast 放宽到任意 `as` 类型、增补 unwrap/expect、return 类按分级降权
 - [ ] 以 git 历史中的既有实现为对照基准，不额外留存快照
@@ -29,13 +32,13 @@
 - [ ] CLI 契约验收：`slice` / `trace` / `suggest` 参数、退出码与 JSON 结构同既有实现，`suggest` 输出一致（D8）
 - [ ] `graph` 按新 JSON 契约验收（D10）
 - [ ] 真实案例快照测试：`graph` 输出在 `assets/fixtures/search.rs` 上锁定，防回退
+- [ ] `evidence` example 实跑经 lib 评证，计数分级不变（anchored/partial/unanchored）
 - [ ] 新增能力以单测验收：跨函数 `trace`、`forward_slice`、`type_info`、`impact_analysis`、`code_search`（D11）
 - [ ] `cargo run -- review .` 与 `cargo run -- audit .` 自举不退化
 - [ ] `cargo llvm-cov` 覆盖率不低于现基准（AGENTS.md 记 92%）
 
 ## 收尾
 
-- [ ] 依据 example 表现决定证据计数器（`count_evidence`）归属层
 - [ ] README 补充新增 reflect 能力
 - [ ] 同步 `docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md`，`dev-guide/reflect.md` 视变更幅度（D16）
 - [ ] CHANGELOG 增加条目

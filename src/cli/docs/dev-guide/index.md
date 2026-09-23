@@ -10,6 +10,29 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
      └──────────── 问题清单反馈 → AI 直接修正 ────────┘
 ```
 
+## 证据主线（设计总纲）
+
+**确定性输出即证据**：工具链中一切可复核、可复现的确定性产出都是证据；LLM 只在证据之上解释，从不生产证据。三类证据源共用一套证据语言：
+
+| 证据源 | 产出 | 生产者 |
+|:--|:--|:--|
+| 对齐差异 | 问题清单（类型/API/位置/期望/实际） | `audit` |
+| 规则 findings | 位置/规则/级别/消息 | `review` 规则引擎 |
+| 定向分析 | 切片、数据流、调用图、可疑行 | `reflect` |
+
+流水线（取 → 排 → 用 → 评）：
+
+```text
+取证据  reflect::{backward_slice, trace_variable, build_call_graph, suggest}   已实现
+排证据  EvidenceChain：同一组证据的有序组织（正向/反向）             阶段二：src/evidence.rs
+用证据  LLM 因果解释：证据链 → prompt → 结论                          example 已通，lib 解释器下轮
+评证据  count_evidence → anchored / partial / unanchored               阶段二迁入 evidence 模块
+```
+
+落实设计（`src/evidence.rs`，阶段二）：`Evidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载），reflect 六个输出结构体经 `From` 转入；`EvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
+
+边界：证据主线不改变双约束核心，reflect 仍是独立工具——证据是跨工具的共同语言，不是流程强制环节。review/audit 输出适配信封与 findings → 定向取证接线登记下轮；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
+
 ## 交付约束体系（双约束核心）
 
 | 层 | 命令 | 校验/职责 | 判定方式 |
@@ -56,6 +79,8 @@ audit 红态问题清单即下一步任务：`测试引用不存在` → `scaffo
 - **机器可判定优先**：对齐校验不依赖 LLM 判断；质量校验规则引擎兜底
 - **反馈可消费**：问题清单结构化——AI 直接按清单修正
 - **只读安全**：audit/review 不修改任何文件
+- **证据先于解释**：确定性输出即证据，LLM 只在证据之上解释，语义 finding 属解释层不冒充证据；
+- **评证名实相符**：证据计数（`count_evidence`）与 LLM 自评（`confidence`）分名而治，不互相冒充；
 
 ## 人机协作模型
 
@@ -187,7 +212,7 @@ src/
 └── refactor/        # 代码变换（rename）
 ```
 
-`examples/`（薄驱动）与 `assets/fixtures/`（真实案例素材）在 crate 根、`src/` 之外，目录规则见 [../../AGENTS.md](../../AGENTS.md)。
+`examples/`（薄驱动）与 `assets/fixtures/`（真实案例素材）在 crate 根、`src/` 之外，目录规则见 [../../AGENTS.md](../../AGENTS.md)。阶段二将新增 `src/evidence.rs`（证据信封与评证，见证据主线）。
 
 ## 历史与降级工具
 

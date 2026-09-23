@@ -8,6 +8,7 @@
 - 实现：仅 `rename`（符号重命名）——设计远大于实现
 - 替代：修复主路径由 `review --mode deep`（LLM patch）与 AI 直接修正承担——refactor 命令被架空
 - 处置：从体系移除；rename 能力如有需要并入独立工具
+- 证据主线：原设计的输入 `evidence_chain` 即证据主线的 `EvidenceChain`（阶段二落地），该输入角色由 reflect/证据层承担；refactor 维持移除，不占证据主线位
 
 ## 核心架构
 
@@ -120,13 +121,16 @@ Patch 元信息：
 | medium | 规则 | 拆分函数、移动代码 | 需理解代码逻辑 |
 | high | LLM | 重写逻辑、更改 API | LLM 生成，需人工严格审核 |
 
-## 命令行
+## 命令行（历史设计，未实现）
 
 ```sh
-review . --mode deep             # review + reflect + refactor（dry-run）
-review . --mode deep --apply     # 审查 + 修复 + 写入
-review . --apply "fc-*"          # 仅 apply 特定 finding（glob 匹配 finding_id）
+# 设计稿形态——当前 CLI 无 refactor / rollback 命令：
+review . --mode deep             # 现实现：规则 + LLM 审查 + LLM 生成修复 patch（dry-run）
+review . --mode deep --apply     # 现实现：确认写入修复 patch
+review . --apply "fc-*"          # 设计稿：仅 apply 特定 finding（glob 匹配，未实现）
 ```
+
+回滚与 `.quanttide/code/refactor-log.jsonl` 记账属设计稿，未实现；修复主路径见 [index.md](index.md) 审查模式一节。
 
 ## 回滚
 

@@ -1,30 +1,40 @@
-# reflect — 独立定向分析工具
+# reflect — 证据生产者（独立定向分析工具）
 
-## 职责
+## 职责与定位
 
-定向代码分析（slice/trace/graph/suggest）——你指定方向（文件+行号/变量），工具提供证据链。
+定向代码分析（slice/trace/graph/suggest）——你指定方向（文件+行号/变量），工具产出**确定性证据**。
 
-**定位**：~~交付约束体系的修复链路~~（2026-08 已降级）——**独立定向分析工具**，不入交付约束体系。交付约束核心是 audit（对齐）+ review（质量）；修复由 AI 按问题清单直接完成，reflect 的根因分析不是必经环节。保留 slice/trace/graph/suggest 供人类偶尔做定向分析（依赖追溯、变量定义链）。
+**定位**：~~交付约束体系的修复链路~~（2026-08 已降级）——**独立定向分析工具**，不入交付约束体系（交付约束核心是 audit + review）。但在证据主线下，reflect 是**定向取证层**：给定 review finding 的位置或任意方向，产出可复核、可复现的分析证据，供人直接读、供 LLM 在其上解释（解释不回流为证据）。
 
-给定 review 的证据（finding），不是停留在"这里有问题"，而是反复追问"为什么"，直到找到源头。
+给定 review 的证据（finding），不是停留「这里有问题」，而是反复追问「为什么」，直到拿到源头的语句与值路径。
 
-## 核心架构
+## 证据模型（目标设计）
 
-```
-证据（review findings）
-  ↓
-机械侦探（确定性，规则引擎）
-  ├── 程序切片    在函数内反向追溯："这个 unsafe 块怎么来的"
-  ├── 数据流分析  追踪值路径："这个裸指针从哪里传过来的"
-  └── 依赖图分析  跨文件追溯："哪些模块依赖了这个不安全接口"
-  ↓
-推理链（证据流）
-  ↓
-因果解释（LLM，可选）
-  └── 在证据链基础上回答"为什么"
-```
+现状：六个输出结构体各返各的，没有统一包装，也没有跨分析的组合形态：
 
-**机械侦探部分不需要 LLM**，结果完全确定、可复现。LLM 只在最后一步做因果解释。
+| 结构体 | 字段 | 来源 |
+|:--|:--|:--|
+| `SliceEntry` | file, line, text | slice / forward_slice 等 |
+| `FlowEntry` | var, from, line | trace |
+| `CallGraphNode` | name, line, callees, callers | graph |
+| `Suggestion` | line, kind, text | suggest |
+| `ImpactResult` | def_line, var_name, forward_usages, callees | impact_analysis |
+| `TypeInfo` | var, line, type_annotation | type_info |
+
+目标（阶段二，`src/evidence.rs`）：
+
+- `Evidence` 统一信封：`kind` + `file` + `line` + `text` + 按 kind 的结构化负载（enum payload），六个结构体经 `From` 转入；
+- `EvidenceChain`：有序证据集 + 来源与目标（文件、目标行/变量）——`examples/evidence.rs` 里 `chain_text` 的 lib 化；
+- `count_evidence` / `anchor_level` 随迁入同模块——评证与证据同居，归属层就此落定。
+
+## 证据流水线（取 → 排 → 用 → 评）
+
+| 步骤 | 职责 | 现在在哪 | 目标与计划 |
+|:--|:--|:--|:--|
+| 取证据 | 四个子命令产出确定性证据 | `reflect::*`（已实现） | 阶段二接线到 CLI |
+| 排证据 | 同一证据集的有序组织（正/反向） | example 内 `chain_text` | `EvidenceChain`，阶段二 |
+| 用证据 | 证据链 → LLM prompt → 结论 | example 内拼 prompt + `llm::call_llm` | lib 解释器登记下轮 |
+| 评证据 | 结论文本的证据引用计数分级 | example 内 `count_evidence` | 迁入 `evidence` 模块，阶段二 |
 
 ## 程序切片
 
@@ -42,7 +52,7 @@ println!("{}", x);           // ← 不在切片内
 
 ## 数据流分析
 
-追踪值的定义→使用路径，回答"这个值从哪来到哪去"。
+追踪值的定义→使用路径，回答「这个值从哪来到哪去」。
 
 ```
 input:  finding 位置 + 涉及的变量
@@ -58,7 +68,7 @@ parse_user_input()            // 用户输入 →
 
 ## 依赖图分析
 
-在项目模块图上追溯，回答"哪些模块链涉及了这个问题"。
+在项目模块图上追溯，回答「哪些模块链涉及了这个问题」。
 
 ```
 finding: data/pointer.rs 的 unsafe 块
@@ -76,23 +86,30 @@ finding: data/pointer.rs 的 unsafe 块
     → 影响范围：整个 data 层和大部分 service 层
 ```
 
-## 推理链
+## 证据链（原「推理链」）
 
-三种分析结果合并为统一的证据流：
+三种分析结果合并为有序证据流——目标 JSON 形态（信封结构，契约以阶段二 D10 起草为准）：
 
-```
-evidence_chain:
-  [
-    { type: "program-slice",  file, lines,     summary: "语句路径" },
-    { type: "data-flow",      path,            summary: "值路径" },
-    { type: "dep-slice",      chain,           summary: "调用链" },
+```json
+{
+  "source": "src/material/mod.rs",
+  "target": { "line": 34, "var": "content" },
+  "entries": [
+    {
+      "kind": "flow",
+      "file": "src/material/mod.rs",
+      "line": 24,
+      "text": "let body = ...",
+      "var": "body",
+      "from": "text.strip_prefix(\"# \")"
+    }
   ]
-
-→ 人类可以直接读这个证据链
-→ LLM 在这之上做因果解释
+}
 ```
 
-## 推理链示例
+→ 人直接读这个证据链；LLM 在其上做因果解释（`llm::call_llm`）；`count_evidence` 对结论评锚定分级。历史设计稿里的 `investigations` + `llm_insight` 聚合即此链的完整形态——解释字段随用证阶段落地。
+
+## 证据链示例
 
 ```
 finding: data/ 层 3 个 unsafe 块、service/ 层 2 个、api/ 层 1 个
@@ -115,16 +132,16 @@ LLM 因果解释：
 
 ## 输出格式
 
-`--json` 时四个子命令各输出一个顶层数组（阶段二 graph 按 D10 契约重设计）：
+`--json` 时四个子命令各输出一个顶层数组（阶段二统一为 `Evidence` 信封，契约以 D10 起草为准）：
 
 | 子命令 | 数组元素字段 | 实现状态 |
 |:--|:--|:--|
-| slice | `{file, line, text}` | 文本实现，阶段二换 AST |
+| slice | `{file, line, text}` | 文本实现，阶段二换 AST + 信封 |
 | trace | `{var, from, line}` | 同上 |
 | graph | `{line, name}` | 桩输出（调用数恒为 0），阶段二重设计 |
 | suggest | `{line, kind, text}` | 文本实现，保留 |
 
-证据链聚合格式（`investigations` + `llm_insight`）属设计愿景，尚未实现——reflect 当前不接 LLM，LLM 与切片的对照实验见 `examples/evidence.rs`。
+`investigations` + `llm_insight` 聚合格式随 `EvidenceChain` 落地（阶段二起步，解释字段待用证阶段补）；reflect 当前不接 LLM，LLM 与切片的对照实验见 `examples/evidence.rs`。
 
 ## 命令行
 
