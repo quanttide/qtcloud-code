@@ -30,7 +30,7 @@
 
 ## 收尾
 
-- [ ] 依据 example 表现决定 `compute_confidence` 归属层
+- [ ] 依据 example 表现决定证据计数器（`count_evidence`）归属层
 - [ ] README 补充新增 reflect 能力
 - [ ] `docs/dev-guide/index.md` 更新模块结构
 - [ ] 同步 `docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md`，`dev-guide/reflect.md` 视变更幅度（D16）

@@ -15,6 +15,7 @@
 - 契约先落文档后改代码——`graph` 新 JSON 契约直接写入 `docs/user-guide/reflect.md`，收尾同步 user-guide 与集成测试文档（D10、D16）；
 - example 只用公开能力——`lib` 暴露 `call_llm`、取 key 函数与 review runner，不在 example 内联 HTTP 与扫描逻辑（D12）；
 - 已知缺陷不进验收——`build_call_graph` 过滤第三方库调用并入本轮，依赖 LLM 闭环的事项登记下轮 backlog（D15）；
-- 未定则先搁置——`compute_confidence` 先放进 example，待语义统一后再定归属层；
+- 名实相符——证据发现与计数机制命名为 `count_evidence`，不叫 confidence，与 LLM 自评 `confidence` 字段两不相涉；
+- 未定则先搁置——证据计数器（原 `compute_confidence`）先放进 example，归属层待定；
 - 遵循既有规则——按仓库「提交即推送」执行，并同步父仓库指针；
 - 先文档后代码，逐项拍板，决策留痕。

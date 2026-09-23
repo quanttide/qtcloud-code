@@ -26,7 +26,7 @@ reflect 四个子命令当前在 `main.rs` 里是行号/文本启发式实现，
 | `suggest` 可疑行 | 文本匹配 return/panic 等 | 基本可用，保留 |
 | `compute_confidence` 证据锚定率 | 无 | 缺 |
 
-`compute_confidence` 按行号/变量名引用计数分级，与生产 `src/llm.rs` 已有 `confidence` 字段（LLM 自评 confirm/dismiss）语义不同，归属层待 example 演示后决定。
+证据计数器（实验室名 `compute_confidence`，example 中定名为 `count_evidence`）按行号/变量名引用计数分级——是证据发现与计数机制而非置信度，与生产 `src/llm.rs` 已有 `confidence` 字段（LLM 自评 confirm/dismiss）是两回事，归属层待 example 演示后决定。
 
 实验室的 `llm.rs`（Vault 取密钥 + `enhance_finding`）不迁——生产 `src/llm.rs` 已用环境变量加 OpenAI 兼容接口实现同类能力。
 
@@ -43,7 +43,7 @@ src/reflect/
 └── suggest.rs    suggest（自 main.rs 迁入的文本实现）
 ```
 
-`compute_confidence` 暂不迁，先在 example 中内联演示，归属层留待语义统一后决定。剩余两项：
+`compute_confidence` 暂不迁，example 中已按证据发现与计数重定名为 `count_evidence` 内联演示，归属层待定。剩余两项：
 
 - 为 `analysis.rs` 补单元测试（D11）——四项新增能力的验收与覆盖率都落在单测上；
 - 删除实验室 `cross_function_slice` 及其专用辅助函数。
