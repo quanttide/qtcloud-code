@@ -2,6 +2,14 @@
 
 本文档为 Agent 在 qtcloud-code-cli 中工作提供指南，贡献流程与测试规范见 [CONTRIBUTING](./CONTRIBUTING.md)，架构与开发知识见 [docs/dev-guide](./docs/dev-guide/index.md)。
 
+## 素材与示例目录
+
+- 驱动：`examples/*.rs`——调用 lib 的薄示例，Cargo 自动编译，勿放素材；
+- 被分析素材：`assets/fixtures/`——真实代码样本（含多语言与多文件项目），不在 Cargo 目标扫描范围，无误编译风险；
+- 禁区：`examples/` 顶层的 `*.rs` 与 `examples/*/main.rs` 会被编译为 example target，素材不得进入；
+- 实验性真实项目进实验室 `domains/quanttide-code/examples/default/`，不入本 crate；不便入库的用路径参数传入（`false_positive_filter -- <目标目录>`）；
+- 驱动优先读素材、缺省回落内嵌样例，定位用 `env!("CARGO_MANIFEST_DIR")`，不依赖运行时 cwd。
+
 ## 决策风格
 
 以下由实验室成果迁移的决策推测得出（工作清单见 [TODO](./TODO.md)，背景见 [ROADMAP](./ROADMAP.md)）。决策均已拍板并收入本节，原文见 git 历史中的 DECISIONS。项目处于早期，更新可以激进，不为旧契约、死代码或临时产物留包袱：

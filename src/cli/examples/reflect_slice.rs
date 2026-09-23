@@ -14,16 +14,23 @@ const SAMPLE: &str = r#"fn process_order(input: &str) -> Result<String, String> 
     Ok(format!("{}: {:.2}", name, total))
 }"#;
 
+/// 素材优先：`assets/fixtures/process_order.rs`；缺省回落内嵌样例
+fn load_sample() -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/process_order.rs");
+    std::fs::read_to_string(path).unwrap_or_else(|_| SAMPLE.to_string())
+}
+
 fn main() {
+    let code = load_sample();
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(&tree_sitter_rust::LANGUAGE.into())
         .expect("加载 Rust 语法");
-    let tree = parser.parse(SAMPLE, None).expect("解析示例");
+    let tree = parser.parse(&code, None).expect("解析示例");
 
     let target_line = 7; // let total = price * qty;
     let entries = qtcloud_code_cli::reflect::backward_slice(
-        SAMPLE,
+        &code,
         &tree,
         Path::new("sample.rs"),
         target_line,

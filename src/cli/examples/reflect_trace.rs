@@ -2,6 +2,8 @@
 //!
 //! 运行：`cargo run --example reflect_trace`
 
+use std::path::Path;
+
 const SAMPLE: &str = r#"fn process_order(input: &str) -> Result<String, String> {
     let trimmed = input.trim();
     let parts: Vec<&str> = trimmed.split(',').collect();
@@ -12,15 +14,22 @@ const SAMPLE: &str = r#"fn process_order(input: &str) -> Result<String, String> 
     Ok(format!("{}: {:.2}", name, total))
 }"#;
 
+/// 素材优先：`assets/fixtures/process_order.rs`；缺省回落内嵌样例
+fn load_sample() -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/process_order.rs");
+    std::fs::read_to_string(path).unwrap_or_else(|_| SAMPLE.to_string())
+}
+
 fn main() {
+    let code = load_sample();
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(&tree_sitter_rust::LANGUAGE.into())
         .expect("加载 Rust 语法");
-    let tree = parser.parse(SAMPLE, None).expect("解析示例");
+    let tree = parser.parse(&code, None).expect("解析示例");
 
     let var = "total";
-    let flow = qtcloud_code_cli::reflect::trace_variable(SAMPLE, &tree, 7, var);
+    let flow = qtcloud_code_cli::reflect::trace_variable(&code, &tree, 7, var);
 
     if flow.is_empty() {
         println!("未找到变量 '{}' 的声明", var);

@@ -2,6 +2,8 @@
 //!
 //! 运行：`cargo run --example reflect_suggest`
 
+use std::path::Path;
+
 const SAMPLE: &str = r#"fn parse_age(input: &str) -> Result<f64, String> {
     let age: f64 = input.trim().parse().map_err(|e| e.to_string())?;
     if age > 150.0 {
@@ -16,8 +18,15 @@ const SAMPLE: &str = r#"fn parse_age(input: &str) -> Result<f64, String> {
     Ok(age)
 }"#;
 
+/// 素材优先：`assets/fixtures/parse_age.rs`；缺省回落内嵌样例
+fn load_sample() -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/parse_age.rs");
+    std::fs::read_to_string(path).unwrap_or_else(|_| SAMPLE.to_string())
+}
+
 fn main() {
-    let hits = qtcloud_code_cli::reflect::suggest(SAMPLE);
+    let code = load_sample();
+    let hits = qtcloud_code_cli::reflect::suggest(&code);
 
     if hits.is_empty() {
         println!("未发现可疑行");
