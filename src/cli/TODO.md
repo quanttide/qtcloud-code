@@ -1,6 +1,6 @@
 # TODO 实验室成果迁移
 
-步骤说明见 [ROADMAP](./ROADMAP.md)，决策记录见 [DECISIONS](./DECISIONS.md)。
+步骤说明见 [ROADMAP](./ROADMAP.md)，决策结论见 [AGENTS](./AGENTS.md)。
 
 ## 阶段一 迁 reflect 入 src
 
@@ -47,7 +47,7 @@
 
 - [ ] 依据 example 表现决定 `compute_confidence` 归属层
 - [ ] README 补充新增 reflect 能力
-- [ ] AGENTS.md 更新模块结构
+- [ ] `docs/dev-guide/index.md` 更新模块结构
 - [ ] 同步 `docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md`，`dev-guide/reflect.md` 视变更幅度（D16）
 - [ ] CHANGELOG 增加条目
 - [ ] ROADMAP 登记本轮未完成项

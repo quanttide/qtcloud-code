@@ -1,6 +1,6 @@
 # ROADMAP qtcloud-code-cli
 
-工作清单见 [TODO](./TODO.md)，决策记录见 [DECISIONS](./DECISIONS.md)。
+工作清单见 [TODO](./TODO.md)，决策结论见 [AGENTS](./AGENTS.md)。
 
 ## 意图
 

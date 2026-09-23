@@ -1,153 +1,20 @@
 # Agent 工作指南
 
-本文档为 Agent 在 qtcloud-code-cli 中工作提供指南。
+本文档为 Agent 在 qtcloud-code-cli 中工作提供指南，贡献流程与测试规范见 [CONTRIBUTING](./CONTRIBUTING.md)，架构与开发知识见 [docs/dev-guide](./docs/dev-guide/index.md)。
 
 ## 决策风格
 
-以下由实验室成果迁移的决策推测得出（工作清单见 [TODO](./TODO.md)）。项目处于早期，更新可以激进，不为旧契约、死代码或临时产物留包袌：
+以下由实验室成果迁移的决策推测得出（工作清单见 [TODO](./TODO.md)，背景见 [ROADMAP](./ROADMAP.md)）。决策均已拍板并收入本节，原文见 git 历史中的 DECISIONS。项目处于早期，更新可以激进，不为旧契约、死代码或临时产物留包袱：
 
 - 以原始意图为准——选项与建议不符意图时改选，取「先公开 `pub mod reflect` 再写薄 example」，放弃内联自包含；
-- 消除临时产物与死代码——直接删除实验室 `cross_function_slice`，不留输出快照，example 不做自包含副本；
-- 能力做完整而非留待办——补齐 `trace_variable` 跨函数追踪，不接受只标注限制；
-- 不迁就旧契约——重新设计 `graph` 的 JSON，不采用追加字段的兼容做法；
+- 消除临时产物与死代码——直接删除实验室 `cross_function_slice` 与 `chain_exp`、`llm_exp` 原件，`lab.rs` 无引用则删，不留输出快照，example 不做自包含副本（D13）；
+- 消除重复实现——四份 `walk_all` 收敛为公开的公共模块，`refactor/rename.rs` 一并改用，不留副本（D14）；
+- 能力做完整而非留待办——补齐 `trace_variable` 跨函数追踪，不接受只标注限制；新增能力必须配单元测试，覆盖率不低于现基准（D11）；
+- 不迁就旧契约——重新设计 `graph` 的 JSON，测试断言随新实现全部重写，对照只认 git 历史，不走追加字段与保留旧断言的兼容路线（D9）；
+- 验收以 CLI 契约为准——参数、退出码与 JSON 结构不变即功能不变，`slice`、`trace` 输出内容升级按新增功能验收（D8）；
+- 契约先落文档后改代码——`graph` 新 JSON 契约直接写入 `docs/user-guide/reflect.md`，收尾同步 user-guide 与集成测试文档（D10、D16）；
+- example 只用公开能力——`lib` 暴露 `call_llm`、取 key 函数与 review runner，不在 example 内联 HTTP 与扫描逻辑（D12）；
+- 已知缺陷不进验收——`build_call_graph` 过滤第三方库调用并入本轮，依赖 LLM 闭环的事项登记下轮 backlog（D15）；
 - 未定则先搁置——`compute_confidence` 先放进 example，待语义统一后再定归属层；
 - 遵循既有规则——按仓库「提交即推送」执行，并同步父仓库指针；
 - 先文档后代码，逐项拍板，决策留痕。
-
-## 人机协作模型
-
-3R = review → reflect → refactor。这是人类高级程序员的工作范式总结，不是工具要实现的系统架构。
-
-```text
-人类（高级程序员）:
-  review:   规则引擎做第一道扫描，辅助发现
-  reflect:  根因追溯在我脑子里，工具提供证据
-  refactor: 重构决策在我脑子里，工具负责执行
-
-AI（初级程序员）:
-  - 规则引擎 = lint 工具，快、确定、无遗漏
-  - LLM = 辅助推理，理解语义、提供洞察
-```
-
-人类定策略：
-
-```text
---mode lint  仅规则引擎（秒级）
---mode llm   规则引擎 + LLM 审查（分钟级，默认）
---mode deep  规则引擎 + LLM + LLM 修复（需要审核）
-```
-
-## 发现分级
-
-遵循 RFC 2119 语义：
-
-| **级别** | **含义** | **举例** |
-|:--|:--|:--|
-| MUST | 可能引入 bug，必须审查 | unsafe 块 >8 条 |
-| SHOULD | 维护负担，建议重构 | 函数 >50 行 |
-| MAY | 风格建议，可选采纳 | 函数 >30 行 |
-
-同一规则可输出多个级别，取决于超标程度。例如函数 70 行输出 SHOULD，110 行输出 MUST。
-
-## 架构
-
-```text
-review --mode lint
-  └─ 规则引擎扫描（快、确定）
-  └─ 输出 finding
-
-review --mode llm（默认）
-  └─ 规则引擎扫描（同 lint）
-  └─ LLM 二次审查
-       ├── 优先级排序、去重
-       ├── 上下文追加
-       └── 纯 LLM 规则（安全漏洞、并发 bug 等语义问题）
-
-review --mode deep
-  └─ 规则引擎 + LLM 审查（同 llm）
-  └─ LLM 生成修复 patch
-       └── dry-run 默认，--apply 确认
-```
-
-## 规则引擎定位
-
-规则引擎不是主力，是安全网：
-
-- LLM 遗漏了：规则引擎兜底，不放过任何已知模式；
-- LLM 误判了：规则引擎给出确定性证据；
-- 无 LLM 时：规则引擎独立运行，模式退化为 lint；
-- 确定性基线：无论 LLM 版本如何，lint 结果一致。
-
-## 检测器分类
-
-| **类型** | **执行引擎** | **举例** |
-|:--|:--|:--|
-| 语法规则 | 规则引擎（tree-sitter） | 过长函数、unsafe 块、过长参数列表 |
-| 编译规则 | 规则引擎（cargo check） | 未使用变量 |
-| 项目规则 | 规则引擎（文件映射） | 缺失测试 |
-| 语义规则 | LLM 审查 | 安全漏洞、并发 bug、逻辑错误 |
-
-### 跨语言检测注意事项
-
-不同语言 tree-sitter 节点结构差异大，检测器需处理：
-
-- Rust：`function_item` → `parameters` → `parameter`（每个参数独立节点）；
-- Python：`function_definition` → `parameters`（与 Rust 结构兼容）；
-- Go：`function_declaration` → `parameters` → `parameter_declaration` → 多个 `identifier`（共享类型声明）；
-- Dart：`function_declaration` → `function_signature` → `identifier`（函数名在孙子节点）；
-- TypeScript：同 Go 与 Dart 的 `function_declaration` 结构。
-
-优先使用 `child_by_field_name("parameters")`，必须为各语言准备 fallback。
-
-### 配置驱动排除
-
-三层过滤减少检测噪音：
-
-1. 硬编码跳过（`target/`、`.git/`、非源码扩展名）；
-2. 启发式判断（inline test、external test file）；
-3. 用户配置排除（`.quanttide/code/contract.yaml` 的 `exclude` 字段）。
-
-## 测试
-
-```sh
-# 单元测试 + 集成测试
-cargo test
-
-# 覆盖率（目标 >90%）
-cargo llvm-cov
-```
-
-### 覆盖策略
-
-基准：总体行覆盖 ≥ 90%（当前 92%）。
-
-| **类型** | **目标** | **方法** |
-|:--|:--|:--|
-| 纯函数 | ~100% | 直接测阈值、解析逻辑 |
-| 文件级检测器 | >90% | 各语言 parser + 场景覆盖 |
-| 项目级检测器 | >90% | 拆出纯函数单独测 |
-| CLI 错误路径 | ~80% | 集成测试覆盖主要路径，余留 5% 不追 |
-
-## 模块结构
-
-```text
-src/
-├── main.rs          # CLI 入口 (clap)
-├── lib.rs           # 公开模块
-├── config.rs        # .quanttide/code/contract.yaml 配置加载
-├── parser/          # 语言解析器
-│   ├── mod.rs       # LanguageParser trait + ParseResult
-│   ├── rust.rs      # RustParser
-│   ├── python.rs    # PythonParser
-│   ├── go.rs        # GoParser
-│   ├── dart.rs      # DartParser
-│   └── typescript.rs # TypeScriptParser + TsxParser
-├── detector/        # 检测器
-│   ├── mod.rs       # Detector trait + Finding + walk_tree
-│   ├── long_function.rs
-│   ├── long_parameter_list.rs
-│   ├── unsafe_block.rs
-│   ├── unused_variable.rs
-│   └── missing_tests.rs
-├── output.rs        # 输出格式：JSON / Terminal / STATUS.md
-```
