@@ -27,11 +27,7 @@ fn test_review_help_succeeds() {
 #[test]
 fn test_review_default_repo() {
     let fixture = fixture_path();
-    let output = cli()
-        .arg("review")
-        .arg(&fixture)
-        .output()
-        .unwrap();
+    let output = cli().arg("review").arg(&fixture).output().unwrap();
     assert!(output.status.success());
 }
 
@@ -87,7 +83,11 @@ fn test_review_llm_mode_falls_back_without_key() {
         .unwrap();
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("回退为 lint"), "未配置 LLM 应警告并回退, got: {}", stderr);
+    assert!(
+        stderr.contains("回退为 lint"),
+        "未配置 LLM 应警告并回退, got: {}",
+        stderr
+    );
 }
 
 #[test]
@@ -184,11 +184,7 @@ fn test_review_with_multiple_rules() {
 #[test]
 fn test_review_empty_dir() {
     let dir = tempfile::tempdir().unwrap();
-    let output = cli()
-        .arg("review")
-        .arg(dir.path())
-        .output()
-        .unwrap();
+    let output = cli().arg("review").arg(dir.path()).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("未发现问题"));
@@ -199,7 +195,11 @@ fn test_review_status_flag() {
     let dir = tempfile::tempdir().unwrap();
     let src = dir.path().join("src");
     std::fs::create_dir(&src).unwrap();
-    std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"x\"\nversion = \"0.1.0\"\nedition = \"2021\"\n").unwrap();
+    std::fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"x\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
     std::fs::write(src.join("lib.rs"), "pub fn f() -> i32 { 42 }\n").unwrap();
     let output = cli()
         .arg("review")
@@ -252,8 +252,16 @@ fn test_refactor_rename_writes_file() {
         .unwrap();
     assert!(output.status.success());
     let content = std::fs::read_to_string(&f).unwrap();
-    assert!(!content.contains("foo"), "foo should be replaced, but found: {}", content);
-    assert!(content.contains("bar"), "bar should appear after rename: {}", content);
+    assert!(
+        !content.contains("foo"),
+        "foo should be replaced, but found: {}",
+        content
+    );
+    assert!(
+        content.contains("bar"),
+        "bar should appear after rename: {}",
+        content
+    );
 }
 
 #[test]
@@ -274,7 +282,11 @@ fn test_refactor_rename_dry_run_does_not_write() {
         .unwrap();
     assert!(output.status.success());
     let content = std::fs::read_to_string(&f).unwrap();
-    assert!(content.contains("foo"), "dry-run should not modify file: {}", content);
+    assert!(
+        content.contains("foo"),
+        "dry-run should not modify file: {}",
+        content
+    );
 }
 
 #[test]
@@ -323,10 +335,6 @@ fn test_contract_list_json() {
 
 #[test]
 fn test_list_rules_json() {
-    let output = cli()
-        .arg("list-rules")
-        .arg("--json")
-        .output()
-        .unwrap();
+    let output = cli().arg("list-rules").arg("--json").output().unwrap();
     assert!(output.status.success());
 }

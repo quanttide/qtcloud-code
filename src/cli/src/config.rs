@@ -1,5 +1,5 @@
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ContractConfig {
@@ -31,10 +31,14 @@ impl AuditConfig {
         self.code.clone().unwrap_or_else(|| vec!["src".to_string()])
     }
     pub fn test_paths(&self) -> Vec<String> {
-        self.tests.clone().unwrap_or_else(|| vec!["tests".to_string()])
+        self.tests
+            .clone()
+            .unwrap_or_else(|| vec!["tests".to_string()])
     }
     pub fn doc_paths(&self) -> Vec<String> {
-        self.docs.clone().unwrap_or_else(|| vec!["docs".to_string()])
+        self.docs
+            .clone()
+            .unwrap_or_else(|| vec!["docs".to_string()])
     }
     pub fn edge_enabled(&self, edge: &str) -> bool {
         match &self.edges {
@@ -59,14 +63,16 @@ pub struct CodeConfig {
 }
 
 pub fn should_skip_test_functions(config: &Option<ContractConfig>) -> bool {
-    config.as_ref()
+    config
+        .as_ref()
         .and_then(|c| c.code.as_ref())
         .and_then(|c| c.skip_test_functions)
         .unwrap_or(true)
 }
 
 pub fn should_skip_skeleton_files(config: &Option<ContractConfig>) -> bool {
-    config.as_ref()
+    config
+        .as_ref()
         .and_then(|c| c.code.as_ref())
         .and_then(|c| c.skip_skeleton_files)
         .unwrap_or(true)
@@ -74,8 +80,12 @@ pub fn should_skip_skeleton_files(config: &Option<ContractConfig>) -> bool {
 
 pub fn is_excluded(file_rel: &str, config: &Option<ContractConfig>) -> bool {
     let Some(config) = config else { return false };
-    let Some(code) = &config.code else { return false };
-    let Some(exclude) = &code.exclude else { return false };
+    let Some(code) = &config.code else {
+        return false;
+    };
+    let Some(exclude) = &code.exclude else {
+        return false;
+    };
     exclude.iter().any(|p| {
         if p.ends_with('/') {
             file_rel.starts_with(p)
@@ -171,7 +181,10 @@ mod tests {
     #[test]
     fn test_config_without_rules_field() {
         let cli: Option<Vec<String>> = None;
-        let config = Some(ContractConfig { code: None, audit: None });
+        let config = Some(ContractConfig {
+            code: None,
+            audit: None,
+        });
         let all = &["rule-a"];
         let result = resolve_enabled_rules(&cli, &config, all);
         assert_eq!(result, vec!["rule-a"]);

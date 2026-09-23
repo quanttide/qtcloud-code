@@ -117,7 +117,9 @@ mod tests_tsx {
     #[test]
     fn test_tsx_parse_valid() {
         let mut parser = TsxParser::new().unwrap();
-        let result = parser.parse(Path::new("f.tsx"), "const x: number = 1").unwrap();
+        let result = parser
+            .parse(Path::new("f.tsx"), "const x: number = 1")
+            .unwrap();
         assert_eq!(result.file_path, "f.tsx");
     }
 }

@@ -7,7 +7,11 @@ pub const DESCRIPTION: &str = "源文件缺少对应测试";
 
 const SOURCE_EXTENSIONS: &[&str] = &["rs", "py", "go", "dart", "ts", "tsx"];
 
-pub fn check_missing_tests(project_root: &Path, source_files: &[PathBuf], config: &Option<crate::config::ContractConfig>) -> Vec<Finding> {
+pub fn check_missing_tests(
+    project_root: &Path,
+    source_files: &[PathBuf],
+    config: &Option<crate::config::ContractConfig>,
+) -> Vec<Finding> {
     let mut findings = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -21,7 +25,11 @@ pub fn check_missing_tests(project_root: &Path, source_files: &[PathBuf], config
             Err(_) => continue,
         };
 
-        let comp = rel.components().next().and_then(|c| c.as_os_str().to_str()).unwrap_or("");
+        let comp = rel
+            .components()
+            .next()
+            .and_then(|c| c.as_os_str().to_str())
+            .unwrap_or("");
         if comp == "target" || comp == ".git" || comp == ".pytest_cache" {
             continue;
         }
@@ -62,7 +70,10 @@ pub fn check_missing_tests(project_root: &Path, source_files: &[PathBuf], config
 }
 
 fn is_test_file(rel: &Path) -> bool {
-    let comps: Vec<_> = rel.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect();
+    let comps: Vec<_> = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().to_string())
+        .collect();
     let file_name = rel.file_name().and_then(|s| s.to_str()).unwrap_or("");
     let ext = rel.extension().and_then(|s| s.to_str()).unwrap_or("");
 
@@ -94,10 +105,14 @@ fn has_inline_tests(file: &Path) -> bool {
     let ext = file.extension().and_then(|s| s.to_str()).unwrap_or("");
     match ext {
         "rs" => content.contains("#[cfg(test)]"),
-        "py" => content.contains("if __name__ == '__main__'") || content.contains("import unittest"),
+        "py" => {
+            content.contains("if __name__ == '__main__'") || content.contains("import unittest")
+        }
         "go" => content.contains("func Test") || content.contains("func Benchmark"),
         "dart" => content.contains("void main") && content.contains("test("),
-        "ts" | "tsx" => content.contains("describe(") || content.contains("it(") || content.contains("test("),
+        "ts" | "tsx" => {
+            content.contains("describe(") || content.contains("it(") || content.contains("test(")
+        }
         _ => false,
     }
 }
@@ -113,12 +128,21 @@ fn has_external_test_file(rel: &Path, project_root: &Path) -> bool {
             let parent = rel.parent().unwrap_or(Path::new(""));
             vec![project_root.join(parent).join(format!("{}_test.go", stem))]
         }
-        "dart" => vec![project_root.join("test").join(format!("{}_test.dart", stem))],
+        "dart" => vec![
+            project_root
+                .join("test")
+                .join(format!("{}_test.dart", stem)),
+        ],
         "ts" | "tsx" => {
             let parent = rel.parent().unwrap_or(Path::new(""));
             vec![
-                project_root.join(parent).join(format!("{}.test.{}", stem, ext)),
-                project_root.join(parent).join("__tests__").join(format!("{}.test.{}", stem, ext)),
+                project_root
+                    .join(parent)
+                    .join(format!("{}.test.{}", stem, ext)),
+                project_root
+                    .join(parent)
+                    .join("__tests__")
+                    .join(format!("{}.test.{}", stem, ext)),
             ]
         }
         _ => vec![],
@@ -131,12 +155,10 @@ fn is_skeleton_file(file: &Path, rel: &Path) -> bool {
     let file_name = rel.file_name().and_then(|s| s.to_str()).unwrap_or("");
     match file_name {
         "build.rs" | "__init__.py" => true,
-        "mod.rs" | "lib.rs" => {
-            match std::fs::read_to_string(file) {
-                Ok(content) => is_declaration_only(&content),
-                Err(_) => false,
-            }
-        }
+        "mod.rs" | "lib.rs" => match std::fs::read_to_string(file) {
+            Ok(content) => is_declaration_only(&content),
+            Err(_) => false,
+        },
         _ => false,
     }
 }
@@ -144,14 +166,25 @@ fn is_skeleton_file(file: &Path, rel: &Path) -> bool {
 fn is_declaration_only(content: &str) -> bool {
     for line in content.lines() {
         let t = line.trim();
-        if t.is_empty() || t.starts_with("//") || t.starts_with('#') || t.starts_with("/*") || t.starts_with("*") {
+        if t.is_empty()
+            || t.starts_with("//")
+            || t.starts_with('#')
+            || t.starts_with("/*")
+            || t.starts_with("*")
+        {
             continue;
         }
-        if t.starts_with("fn ") || t.starts_with("pub fn ")
-            || t.starts_with("struct ") || t.starts_with("pub struct ")
-            || t.starts_with("enum ") || t.starts_with("pub enum ")
-            || t.starts_with("trait ") || t.starts_with("pub trait ")
-            || t.starts_with("impl ") || t.starts_with("pub impl ") || t.starts_with("unsafe impl ")
+        if t.starts_with("fn ")
+            || t.starts_with("pub fn ")
+            || t.starts_with("struct ")
+            || t.starts_with("pub struct ")
+            || t.starts_with("enum ")
+            || t.starts_with("pub enum ")
+            || t.starts_with("trait ")
+            || t.starts_with("pub trait ")
+            || t.starts_with("impl ")
+            || t.starts_with("pub impl ")
+            || t.starts_with("unsafe impl ")
         {
             return false;
         }
@@ -227,7 +260,11 @@ mod tests {
         std::fs::create_dir(&src).unwrap();
         std::fs::write(src.join("lib.rs"), "pub fn f() {}").unwrap();
         std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
-        let findings = check_missing_tests(dir.path(), &[src.join("lib.rs"), src.join("main.rs")], &None);
+        let findings = check_missing_tests(
+            dir.path(),
+            &[src.join("lib.rs"), src.join("main.rs")],
+            &None,
+        );
         assert_eq!(findings.len(), 2);
         assert_eq!(findings[0].severity, Severity::Must);
         assert_eq!(findings[0].rule_id, "missing-tests");
@@ -260,7 +297,11 @@ mod tests {
     fn test_is_skeleton_file_build_rs() {
         let dir = tempfile::tempdir().unwrap();
         let f = dir.path().join("build.rs");
-        std::fs::write(&f, "fn main() { println!(\"cargo:rerun-if-changed=foo\"); }").unwrap();
+        std::fs::write(
+            &f,
+            "fn main() { println!(\"cargo:rerun-if-changed=foo\"); }",
+        )
+        .unwrap();
         assert!(is_skeleton_file(&f, Path::new("build.rs")));
     }
 
@@ -295,7 +336,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("build.rs"), "fn main() {}").unwrap();
         let findings = check_missing_tests(dir.path(), &[dir.path().join("build.rs")], &None);
-        assert!(findings.is_empty(), "build.rs should be skipped automatically");
+        assert!(
+            findings.is_empty(),
+            "build.rs should be skipped automatically"
+        );
     }
 
     #[test]
@@ -303,7 +347,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("__init__.py"), "# comment").unwrap();
         let findings = check_missing_tests(dir.path(), &[dir.path().join("__init__.py")], &None);
-        assert!(findings.is_empty(), "__init__.py should be skipped automatically");
+        assert!(
+            findings.is_empty(),
+            "__init__.py should be skipped automatically"
+        );
     }
 
     #[test]
@@ -311,15 +358,25 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\n").unwrap();
         let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &None);
-        assert!(findings.is_empty(), "declaration-only mod.rs should be skipped");
+        assert!(
+            findings.is_empty(),
+            "declaration-only mod.rs should be skipped"
+        );
     }
 
     #[test]
     fn test_check_missing_tests_does_not_skip_mod_rs_with_logic() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("mod.rs"), "pub mod foo;\npub fn helper() {}\n").unwrap();
+        std::fs::write(
+            dir.path().join("mod.rs"),
+            "pub mod foo;\npub fn helper() {}\n",
+        )
+        .unwrap();
         let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &None);
-        assert!(!findings.is_empty(), "mod.rs with logic should still be flagged");
+        assert!(
+            !findings.is_empty(),
+            "mod.rs with logic should still be flagged"
+        );
     }
 
     #[test]
@@ -336,7 +393,10 @@ mod tests {
             }),
         });
         let findings = check_missing_tests(dir.path(), &[dir.path().join("build.rs")], &config);
-        assert!(!findings.is_empty(), "build.rs should NOT be skipped when skip_skeleton_files=false");
+        assert!(
+            !findings.is_empty(),
+            "build.rs should NOT be skipped when skip_skeleton_files=false"
+        );
     }
 
     #[test]
@@ -353,7 +413,10 @@ mod tests {
             }),
         });
         let findings = check_missing_tests(dir.path(), &[dir.path().join("mod.rs")], &config);
-        assert!(!findings.is_empty(), "declaration-only mod.rs should NOT be skipped when skip_skeleton_files=false");
+        assert!(
+            !findings.is_empty(),
+            "declaration-only mod.rs should NOT be skipped when skip_skeleton_files=false"
+        );
     }
 
     #[test]

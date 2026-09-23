@@ -18,7 +18,11 @@
 use crate::audit::{ApiSignature, TestRef};
 
 /// 文档驱动：从文档声明的 API 生成测试骨架
-pub fn gen_tests(doc_apis: &[ApiSignature], lang: &str, source_label: &str) -> Result<String, String> {
+pub fn gen_tests(
+    doc_apis: &[ApiSignature],
+    lang: &str,
+    source_label: &str,
+) -> Result<String, String> {
     if doc_apis.is_empty() {
         return Ok(String::new());
     }
@@ -189,35 +193,50 @@ fn placeholder_args(params: &[String]) -> String {
     if params.is_empty() {
         return String::new();
     }
-    (1..=params.len()).map(|i| i.to_string()).collect::<Vec<_>>().join(", ")
+    (1..=params.len())
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn positional_args(count: usize) -> String {
     if count == 0 {
         return String::new();
     }
-    (0..count).map(|i| format!("a{}", i)).collect::<Vec<_>>().join(", ")
+    (0..count)
+        .map(|i| format!("a{}", i))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn typed_args(count: usize) -> String {
     if count == 0 {
         return String::new();
     }
-    (0..count).map(|i| format!("a{}: i32", i)).collect::<Vec<_>>().join(", ")
+    (0..count)
+        .map(|i| format!("a{}: i32", i))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn go_typed_args(count: usize) -> String {
     if count == 0 {
         return String::new();
     }
-    (0..count).map(|i| format!("a{} int", i)).collect::<Vec<_>>().join(", ")
+    (0..count)
+        .map(|i| format!("a{} int", i))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn ts_typed_args(count: usize) -> String {
     if count == 0 {
         return String::new();
     }
-    (0..count).map(|i| format!("a{}: number", i)).collect::<Vec<_>>().join(", ")
+    (0..count)
+        .map(|i| format!("a{}: number", i))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn capitalize(name: &str) -> String {
@@ -293,7 +312,12 @@ mod tests {
 
     #[test]
     fn test_gen_code_python() {
-        let out = gen_code(&[r#ref("add", 2), r#ref("div", 0)], "py", "tests/test_calc.py").unwrap();
+        let out = gen_code(
+            &[r#ref("add", 2), r#ref("div", 0)],
+            "py",
+            "tests/test_calc.py",
+        )
+        .unwrap();
         assert!(out.contains("def add(a0, a1) -> None:"));
         assert!(out.contains("raise NotImplementedError(\"add 待实现\")"));
         assert!(out.contains("def div() -> None:"));

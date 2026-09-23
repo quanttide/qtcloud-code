@@ -52,7 +52,8 @@ fn count_block_statements(node: &tree_sitter::Node) -> usize {
             if cc.goto_first_child() {
                 loop {
                     let stmt = cc.node();
-                    if stmt.kind().ends_with("_statement") || stmt.kind() == "expression_statement" {
+                    if stmt.kind().ends_with("_statement") || stmt.kind() == "expression_statement"
+                    {
                         count += 1;
                     }
                     if !cc.goto_next_sibling() {
@@ -87,7 +88,9 @@ mod tests {
 
     fn make_rust_tree(source: &str) -> (String, tree_sitter::Tree) {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_rust::LANGUAGE.into())
+            .unwrap();
         let tree = parser.parse(source, None).unwrap();
         (source.to_string(), tree)
     }
@@ -101,7 +104,10 @@ mod tests {
 
     #[test]
     fn test_wide_unsafe_should() {
-        let stmts = (0..6).map(|i| format!("  f({});", i)).collect::<Vec<_>>().join("\n");
+        let stmts = (0..6)
+            .map(|i| format!("  f({});", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("unsafe {{\n{}\n}}", stmts);
         let (s, tree) = make_rust_tree(&source);
         let findings = UnsafeBlockDetector.detect(&s, &tree, &PathBuf::from("f.rs"));

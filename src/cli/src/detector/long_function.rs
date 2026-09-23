@@ -6,7 +6,12 @@ const MAY_THRESHOLD: usize = 30;
 const SHOULD_THRESHOLD: usize = 50;
 const MUST_THRESHOLD: usize = 80;
 
-const FUNCTION_NODE_KINDS: &[&str] = &["function_item", "function_definition", "function_declaration", "method_declaration"];
+const FUNCTION_NODE_KINDS: &[&str] = &[
+    "function_item",
+    "function_definition",
+    "function_declaration",
+    "method_declaration",
+];
 
 pub struct LongFunctionDetector {
     pub skip_test_functions: bool,
@@ -14,7 +19,9 @@ pub struct LongFunctionDetector {
 
 impl Default for LongFunctionDetector {
     fn default() -> Self {
-        Self { skip_test_functions: true }
+        Self {
+            skip_test_functions: true,
+        }
     }
 }
 
@@ -141,7 +148,9 @@ mod tests {
 
     fn make_rust_tree(source: &str) -> (String, tree_sitter::Tree) {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_rust::LANGUAGE.into())
+            .unwrap();
         let tree = parser.parse(source, None).unwrap();
         (source.to_string(), tree)
     }
@@ -149,13 +158,17 @@ mod tests {
     #[test]
     fn test_short_function_no_finding() {
         let (source, tree) = make_rust_tree("fn f() {}");
-        let findings = LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.rs"));
+        let findings =
+            LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.rs"));
         assert!(findings.is_empty());
     }
 
     #[test]
     fn test_long_function_may() {
-        let src = (0..35).map(|i| format!("  let x{} = 1;", i)).collect::<Vec<_>>().join("\n");
+        let src = (0..35)
+            .map(|i| format!("  let x{} = 1;", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("fn f() {{\n{}\n}}", src);
         let (s, tree) = make_rust_tree(&source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
@@ -180,8 +193,14 @@ mod tests {
         let source = "#[test]\nfn test_foo() {\n  let x = 1;\n  let y = 2;\n  let z = 3;\n}\n";
         let (s, tree) = make_rust_tree(source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
-        let test_fn_findings: Vec<_> = findings.iter().filter(|f| f.message.contains("test_foo")).collect();
-        assert!(test_fn_findings.is_empty(), "test function with #[test] should be skipped");
+        let test_fn_findings: Vec<_> = findings
+            .iter()
+            .filter(|f| f.message.contains("test_foo"))
+            .collect();
+        assert!(
+            test_fn_findings.is_empty(),
+            "test function with #[test] should be skipped"
+        );
     }
 
     #[test]
@@ -189,49 +208,84 @@ mod tests {
         let source = "fn test_helper() {\n  let x = 1;\n  let y = 2;\n  let z = 3;\n}\n";
         let (s, tree) = make_rust_tree(source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
-        let test_fn_findings: Vec<_> = findings.iter().filter(|f| f.message.contains("test_helper")).collect();
-        assert!(test_fn_findings.is_empty(), "test helper function starting with test_ should be skipped");
+        let test_fn_findings: Vec<_> = findings
+            .iter()
+            .filter(|f| f.message.contains("test_helper"))
+            .collect();
+        assert!(
+            test_fn_findings.is_empty(),
+            "test helper function starting with test_ should be skipped"
+        );
     }
 
     #[test]
     fn test_python_test_function_skipped() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_python::LANGUAGE.into()).unwrap();
-        let body: String = (0..33).map(|i| format!("    x{} = {}", i, i)).collect::<Vec<_>>().join("\n");
+        parser
+            .set_language(&tree_sitter_python::LANGUAGE.into())
+            .unwrap();
+        let body: String = (0..33)
+            .map(|i| format!("    x{} = {}", i, i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("def test_something():\n{}\n", body);
         let tree = parser.parse(&source, None).unwrap();
-        let findings = LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.py"));
-        assert!(findings.is_empty(), "Python test function should be skipped");
+        let findings =
+            LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.py"));
+        assert!(
+            findings.is_empty(),
+            "Python test function should be skipped"
+        );
     }
 
     #[test]
     fn test_go_test_function_skipped() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_go::LANGUAGE.into()).unwrap();
-        let body: String = (0..33).map(|i| format!("  x{} := {}", i, i)).collect::<Vec<_>>().join("\n");
+        parser
+            .set_language(&tree_sitter_go::LANGUAGE.into())
+            .unwrap();
+        let body: String = (0..33)
+            .map(|i| format!("  x{} := {}", i, i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("func TestSomething() {{\n{}\n}}\n", body);
         let tree = parser.parse(&source, None).unwrap();
-        let findings = LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.go"));
+        let findings =
+            LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.go"));
         assert!(findings.is_empty(), "Go test function should be skipped");
     }
 
     #[test]
     fn test_non_test_function_still_detected() {
-        let src = (0..35).map(|i| format!("  let x{} = 1;", i)).collect::<Vec<_>>().join("\n");
+        let src = (0..35)
+            .map(|i| format!("  let x{} = 1;", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("fn do_work() {{\n{}\n}}", src);
         let (s, tree) = make_rust_tree(&source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
-        assert!(!findings.is_empty(), "non-test function should still be detected");
+        assert!(
+            !findings.is_empty(),
+            "non-test function should still be detected"
+        );
     }
 
     #[test]
     fn test_skip_disabled_does_not_skip_test_function() {
-        let src = (0..35).map(|i| format!("  let x{} = 1;", i)).collect::<Vec<_>>().join("\n");
+        let src = (0..35)
+            .map(|i| format!("  let x{} = 1;", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("#[test]\nfn test_long() {{\n{}\n}}", src);
         let (s, tree) = make_rust_tree(&source);
-        let detector = LongFunctionDetector { skip_test_functions: false };
+        let detector = LongFunctionDetector {
+            skip_test_functions: false,
+        };
         let findings = detector.detect(&s, &tree, &PathBuf::from("f.rs"));
-        assert!(!findings.is_empty(), "test function should NOT be skipped when skip_test_functions=false");
+        assert!(
+            !findings.is_empty(),
+            "test function should NOT be skipped when skip_test_functions=false"
+        );
     }
 
     #[test]
@@ -239,20 +293,36 @@ mod tests {
         let source = "#[cfg(test)]\n#[allow(dead_code)]\nfn helper() {\n  let x = 1;\n  let y = 2;\n  let z = 3;\n}\n";
         let (s, tree) = make_rust_tree(source);
         let findings = LongFunctionDetector::default().detect(&s, &tree, &PathBuf::from("f.rs"));
-        let helper_findings: Vec<_> = findings.iter().filter(|f| f.message.contains("helper")).collect();
-        assert!(helper_findings.is_empty(), "function with #[cfg(test)] and another attribute should be skipped");
+        let helper_findings: Vec<_> = findings
+            .iter()
+            .filter(|f| f.message.contains("helper"))
+            .collect();
+        assert!(
+            helper_findings.is_empty(),
+            "function with #[cfg(test)] and another attribute should be skipped"
+        );
     }
 
     #[test]
     fn test_dart_function_name_extracted() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_dart::LANGUAGE.into()).unwrap();
-        let body: String = (0..33).map(|i| format!("  var x{} = {};", i, i)).collect::<Vec<_>>().join("\n");
+        parser
+            .set_language(&tree_sitter_dart::LANGUAGE.into())
+            .unwrap();
+        let body: String = (0..33)
+            .map(|i| format!("  var x{} = {};", i, i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let source = format!("void long() {{\n{}\n}}", body);
         let tree = parser.parse(&source, None).unwrap();
-        let findings = LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.dart"));
+        let findings =
+            LongFunctionDetector::default().detect(&source, &tree, &PathBuf::from("f.dart"));
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, Severity::May);
-        assert!(findings[0].message.contains("long"), "Dart function name should be 'long', got: {}", findings[0].message);
+        assert!(
+            findings[0].message.contains("long"),
+            "Dart function name should be 'long', got: {}",
+            findings[0].message
+        );
     }
 }

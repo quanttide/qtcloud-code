@@ -85,13 +85,51 @@ impl AuditResult {
 }
 
 /// 硬编码跳过的目录（防止扫描依赖/构建产物）
-const SKIP_DIRS: &[&str] = &["target", ".git", "node_modules", ".venv", "vendor", "build", "dist"];
+const SKIP_DIRS: &[&str] = &[
+    "target",
+    ".git",
+    "node_modules",
+    ".venv",
+    "vendor",
+    "build",
+    "dist",
+];
 
 /// 控制关键字（文档解析时跳过 `if (...)` 之类的误匹配）
 const CONTROL_KEYWORDS: &[&str] = &[
-    "if", "for", "while", "return", "assert", "match", "switch", "catch", "with", "let", "const",
-    "var", "def", "fn", "func", "function", "class", "struct", "impl", "import", "from", "use",
-    "pub", "mod", "macro_rules", "where", "async", "await", "move", "ref", "not", "and", "or",
+    "if",
+    "for",
+    "while",
+    "return",
+    "assert",
+    "match",
+    "switch",
+    "catch",
+    "with",
+    "let",
+    "const",
+    "var",
+    "def",
+    "fn",
+    "func",
+    "function",
+    "class",
+    "struct",
+    "impl",
+    "import",
+    "from",
+    "use",
+    "pub",
+    "mod",
+    "macro_rules",
+    "where",
+    "async",
+    "await",
+    "move",
+    "ref",
+    "not",
+    "and",
+    "or",
 ];
 
 /// 常见类型名（提取参数时过滤，避免把类型当参数名）
@@ -105,13 +143,21 @@ const TYPE_NAMES: &[&str] = &[
 // ============ 代码 API 提取 ============
 
 /// 从单个代码文件中提取 API 签名（顶层函数定义）
-pub fn extract_file_apis(parser: &mut dyn LanguageParser, file_path: &Path, source: &str) -> Vec<ApiSignature> {
+pub fn extract_file_apis(
+    parser: &mut dyn LanguageParser,
+    file_path: &Path,
+    source: &str,
+) -> Vec<ApiSignature> {
     let Some(result) = parser.parse(file_path, source) else {
         return Vec::new();
     };
     let tree = result.tree;
     let rel = result.file_path;
-    let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_string();
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_string();
     let mut apis = Vec::new();
     walk_subtree(tree.root_node(), &mut |node| {
         if !is_function_node(node.kind()) {
@@ -122,31 +168,48 @@ pub fn extract_file_apis(parser: &mut dyn LanguageParser, file_path: &Path, sour
             return;
         }
         // Go 方法（带 receiver `func (r *T) M()`）不算顶层函数
-        if node.kind() == "function_declaration" && source.as_bytes().get(node.start_byte()..).is_some_and(|rest| {
-            let text = String::from_utf8_lossy(rest);
-            text.trim_start().starts_with("func (")
-        }) {
+        if node.kind() == "function_declaration"
+            && source
+                .as_bytes()
+                .get(node.start_byte()..)
+                .is_some_and(|rest| {
+                    let text = String::from_utf8_lossy(rest);
+                    text.trim_start().starts_with("func (")
+                })
+        {
             return;
         }
-        let Some(name) = node_name(&node, source) else { return };
+        let Some(name) = node_name(&node, source) else {
+            return;
+        };
         // 按语言惯例过滤私有（Go 小写未导出、Python _ 前缀）
         if is_private_by_convention(&ext, &name) {
             return;
         }
         let params = extract_params(&node, source);
         let location = format!("{}:{}", rel, node.start_position().row + 1);
-        apis.push(ApiSignature { name, params, location });
+        apis.push(ApiSignature {
+            name,
+            params,
+            location,
+        });
     });
     apis
 }
 
 fn is_function_node(kind: &str) -> bool {
-    matches!(kind, "function_item" | "function_definition" | "function_declaration")
+    matches!(
+        kind,
+        "function_item" | "function_definition" | "function_declaration"
+    )
 }
 
 fn is_top_level(node: &tree_sitter::Node) -> bool {
     match node.parent() {
-        Some(parent) => matches!(parent.kind(), "source_file" | "module" | "program" | "export_statement"),
+        Some(parent) => matches!(
+            parent.kind(),
+            "source_file" | "module" | "program" | "export_statement"
+        ),
         None => true,
     }
 }
@@ -199,13 +262,17 @@ fn extract_params(node: &tree_sitter::Node, source: &str) -> Vec<String> {
         }
         found
     };
-    let Some(params_node) = params_node else { return Vec::new() };
+    let Some(params_node) = params_node else {
+        return Vec::new();
+    };
     let mut params = Vec::new();
     walk_subtree(params_node, &mut |n| {
         if n.kind() != "identifier" {
             return;
         }
-        let Ok(text) = n.utf8_text(source.as_bytes()) else { return };
+        let Ok(text) = n.utf8_text(source.as_bytes()) else {
+            return;
+        };
         let text = text.to_string();
         if TYPE_NAMES.contains(&text.as_str()) || text.starts_with(|c: char| c.is_uppercase()) {
             return;
@@ -227,7 +294,11 @@ pub fn parse_doc_apis(source: &str, location_prefix: &str) -> Vec<ApiSignature> 
         // 一行内可有多处声明，逐个提取
         while let Some((name, params, consumed)) = extract_call(rest) {
             let location = format!("{}:{}", location_prefix, i + 1);
-            apis.push(ApiSignature { name, params, location });
+            apis.push(ApiSignature {
+                name,
+                params,
+                location,
+            });
             rest = &rest[consumed..];
         }
     }
@@ -320,7 +391,11 @@ fn parse_arg_list(rest: &str) -> (Vec<String>, usize) {
 // ============ 测试引用分析 ============
 
 /// 从单个测试文件中收集 API 引用（调用表达式 + 宏内的调用模式）
-pub fn collect_file_refs(parser: &mut dyn LanguageParser, file_path: &Path, source: &str) -> Vec<TestRef> {
+pub fn collect_file_refs(
+    parser: &mut dyn LanguageParser,
+    file_path: &Path,
+    source: &str,
+) -> Vec<TestRef> {
     let Some(result) = parser.parse(file_path, source) else {
         return Vec::new();
     };
@@ -335,7 +410,9 @@ pub fn collect_file_refs(parser: &mut dyn LanguageParser, file_path: &Path, sour
         if !is_call_node(node.kind()) {
             return;
         }
-        let Some(name) = call_name(&node, source) else { return };
+        let Some(name) = call_name(&node, source) else {
+            return;
+        };
         let arg_count = arg_count(&node);
         let line = node.start_position().row + 1;
         let entry = refs.entry(name).or_insert((arg_count, line, rel.clone()));
@@ -380,7 +457,9 @@ fn scan_token_tree(
                         .map(|t| count_top_level_args(t))
                         .unwrap_or(0);
                     let line = id.start_position().row + 1;
-                    let entry = refs.entry(name.to_string()).or_insert((args, line, rel.to_string()));
+                    let entry =
+                        refs.entry(name.to_string())
+                            .or_insert((args, line, rel.to_string()));
                     if args > entry.0 {
                         entry.0 = args;
                     }
@@ -418,7 +497,10 @@ fn count_top_level_args(text: &str) -> usize {
 }
 
 fn is_call_node(kind: &str) -> bool {
-    matches!(kind, "call_expression" | "call" | "function_call" | "invocation_expression")
+    matches!(
+        kind,
+        "call_expression" | "call" | "function_call" | "invocation_expression"
+    )
 }
 
 /// 从调用节点提取被调用的函数名
@@ -435,7 +517,8 @@ fn call_name(node: &tree_sitter::Node, source: &str) -> Option<String> {
                     }
                 }
                 // 成员/字段访问 `a.b.c(...)` → 取最后的 identifier
-                "field_expression" | "member_expression" | "attribute" | "scoped_identifier" | "selector" => {
+                "field_expression" | "member_expression" | "attribute" | "scoped_identifier"
+                | "selector" => {
                     let names: Vec<&str> = child
                         .utf8_text(source.as_bytes())
                         .ok()?
@@ -488,7 +571,11 @@ fn arg_count(node: &tree_sitter::Node) -> usize {
 // ============ 目录收集 ============
 
 /// 收集路径列表下的所有支持语言文件
-pub fn collect_source_files(paths: &[String], root: &Path, excluded: impl Fn(&str) -> bool) -> Vec<PathBuf> {
+pub fn collect_source_files(
+    paths: &[String],
+    root: &Path,
+    excluded: impl Fn(&str) -> bool,
+) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for p in paths {
         let full = root.join(p);
@@ -501,7 +588,11 @@ pub fn collect_source_files(paths: &[String], root: &Path, excluded: impl Fn(&st
                 .filter(|e| e.file_type().is_file())
             {
                 let path = entry.path();
-                let rel = path.strip_prefix(root).unwrap_or(path).to_string_lossy().to_string();
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
                 if excluded(&rel) || path_skipped(path) {
                     continue;
                 }
@@ -514,9 +605,8 @@ pub fn collect_source_files(paths: &[String], root: &Path, excluded: impl Fn(&st
 }
 
 fn path_skipped(path: &Path) -> bool {
-    path.components().any(|c| {
-        SKIP_DIRS.contains(&c.as_os_str().to_string_lossy().as_ref())
-    })
+    path.components()
+        .any(|c| SKIP_DIRS.contains(&c.as_os_str().to_string_lossy().as_ref()))
 }
 
 // ============ 三边对比 ============
@@ -563,40 +653,303 @@ pub fn compare_code_docs(code_apis: &[ApiSignature], doc_apis: &[ApiSignature]) 
 /// 常见外部/内置调用名（测试引用中出现但不属于项目 API——不参与对齐校验）
 const EXTERNAL_CALLS: &[&str] = &[
     // 语言内置/标准库
-    "print", "println", "eprintln", "eprint", "format", "format_args", "vec", "dbg", "panic",
-    "todo", "unreachable", "unimplemented", "assert", "assert_eq", "assert_ne", "assert_matches",
-    "matches", "include_str", "include_bytes", "write", "writeln", "Some", "None", "Ok", "Err",
-    "Box", "Vec", "String", "len", "range", "str", "int", "float", "bool", "list", "dict", "set",
-    "tuple", "isinstance", "issubclass", "super", "repr", "type", "enumerate", "zip", "sorted",
-    "reversed", "sum", "min", "max", "abs", "round", "open", "input", "hash", "id", "next",
-    "iter", "vars", "dir", "getattr", "setattr", "hasattr", "any", "all", "chr", "ord", "divmod",
-    "pow", "bytes", "bytearray", "frozenset", "object", "property", "staticmethod", "classmethod",
-    "callable", "eval", "exec", "compile", "globals", "locals", "make", "new", "append", "copy",
-    "delete", "close", "recover", "Println", "Printf", "Sprintf", "Errorf", "Fprintf", "String",
-    "Number", "Boolean", "Array", "Object", "JSON", "stringify", "parse", "parseFloat", "parseInt",
-    "isNaN", "isFinite", "Math", "floor", "ceil", "round", "log", "error", "warn", "info",
-    "console", "document", "window", "fetch", "setTimeout", "setInterval", "alert", "confirm",
-    "prompt", "Promise", "resolve", "reject", "then", "catch", "finally", "require", "export",
-    "default", "describe", "it", "test", "expect", "toEqual", "toBe", "beforeEach", "afterEach",
-    "beforeAll", "afterAll", "mock", "spyOn", "useState", "useEffect", "useRef", "useMemo",
-    "identical", "printDebug", "toString", "toList", "toMap", "where", "map", "filter", "reduce",
-    "fold", "forEach", "contains", "containsKey", "containsValue", "clear",
-    "isEmpty", "isNotEmpty", "first", "last", "length", "size", "keys", "values", "entries",
-    "push", "pop", "shift", "unshift", "join", "split", "trim", "toUpperCase", "toLowerCase",
-    "substring", "replace", "startsWith", "endsWith", "includes", "indexOf", "slice", "splice",
-    "sort", "reverse", "concat", "flat", "flatMap", "find", "findIndex", "every", "some",
-    "toFixed", "toPrecision", "toString", "valueOf", "hasOwnProperty", "isPrototypeOf",
-    "propertyIsEnumerable", "toLocaleString", "clone", "cloneInto", "unwrap", "expect", "as_ref",
-    "as_mut", "borrow", "borrow_mut", "iter", "into_iter", "collect", "cloned", "copied", "take",
-    "and_then", "or_else", "unwrap_or", "unwrap_or_else", "ok_or", "ok_or_else", "map_err",
-    "into", "from", "as_str", "to_string", "to_owned", "clone", "is_empty", "contains_key",
-    "insert", "get", "get_mut", "remove", "retain", "drain", "reserve", "capacity", "shrink_to",
-    "to_vec", "into_vec", "extend", "dedup", "reverse", "rotate_left", "rotate_right", "sort",
-    "sort_by", "sort_by_key", "binary_search", "binary_search_by", "partition_point", "split_at",
-    "chunks", "windows", "zip", "enumerate", "position", "rposition", "find_map", "filter_map",
-    "flat_map", "skip", "skip_while", "take_while", "peekable", "fuse", "inspect", "chain",
-    "cycle", "sum", "product", "max", "min", "max_by", "min_by", "count", "last", "nth", "step_by",
-    "any", "all", "ne", "eq", "cmp", "partial_cmp", "lt", "le", "gt", "ge", "neg", "not",
+    "print",
+    "println",
+    "eprintln",
+    "eprint",
+    "format",
+    "format_args",
+    "vec",
+    "dbg",
+    "panic",
+    "todo",
+    "unreachable",
+    "unimplemented",
+    "assert",
+    "assert_eq",
+    "assert_ne",
+    "assert_matches",
+    "matches",
+    "include_str",
+    "include_bytes",
+    "write",
+    "writeln",
+    "Some",
+    "None",
+    "Ok",
+    "Err",
+    "Box",
+    "Vec",
+    "String",
+    "len",
+    "range",
+    "str",
+    "int",
+    "float",
+    "bool",
+    "list",
+    "dict",
+    "set",
+    "tuple",
+    "isinstance",
+    "issubclass",
+    "super",
+    "repr",
+    "type",
+    "enumerate",
+    "zip",
+    "sorted",
+    "reversed",
+    "sum",
+    "min",
+    "max",
+    "abs",
+    "round",
+    "open",
+    "input",
+    "hash",
+    "id",
+    "next",
+    "iter",
+    "vars",
+    "dir",
+    "getattr",
+    "setattr",
+    "hasattr",
+    "any",
+    "all",
+    "chr",
+    "ord",
+    "divmod",
+    "pow",
+    "bytes",
+    "bytearray",
+    "frozenset",
+    "object",
+    "property",
+    "staticmethod",
+    "classmethod",
+    "callable",
+    "eval",
+    "exec",
+    "compile",
+    "globals",
+    "locals",
+    "make",
+    "new",
+    "append",
+    "copy",
+    "delete",
+    "close",
+    "recover",
+    "Println",
+    "Printf",
+    "Sprintf",
+    "Errorf",
+    "Fprintf",
+    "String",
+    "Number",
+    "Boolean",
+    "Array",
+    "Object",
+    "JSON",
+    "stringify",
+    "parse",
+    "parseFloat",
+    "parseInt",
+    "isNaN",
+    "isFinite",
+    "Math",
+    "floor",
+    "ceil",
+    "round",
+    "log",
+    "error",
+    "warn",
+    "info",
+    "console",
+    "document",
+    "window",
+    "fetch",
+    "setTimeout",
+    "setInterval",
+    "alert",
+    "confirm",
+    "prompt",
+    "Promise",
+    "resolve",
+    "reject",
+    "then",
+    "catch",
+    "finally",
+    "require",
+    "export",
+    "default",
+    "describe",
+    "it",
+    "test",
+    "expect",
+    "toEqual",
+    "toBe",
+    "beforeEach",
+    "afterEach",
+    "beforeAll",
+    "afterAll",
+    "mock",
+    "spyOn",
+    "useState",
+    "useEffect",
+    "useRef",
+    "useMemo",
+    "identical",
+    "printDebug",
+    "toString",
+    "toList",
+    "toMap",
+    "where",
+    "map",
+    "filter",
+    "reduce",
+    "fold",
+    "forEach",
+    "contains",
+    "containsKey",
+    "containsValue",
+    "clear",
+    "isEmpty",
+    "isNotEmpty",
+    "first",
+    "last",
+    "length",
+    "size",
+    "keys",
+    "values",
+    "entries",
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "join",
+    "split",
+    "trim",
+    "toUpperCase",
+    "toLowerCase",
+    "substring",
+    "replace",
+    "startsWith",
+    "endsWith",
+    "includes",
+    "indexOf",
+    "slice",
+    "splice",
+    "sort",
+    "reverse",
+    "concat",
+    "flat",
+    "flatMap",
+    "find",
+    "findIndex",
+    "every",
+    "some",
+    "toFixed",
+    "toPrecision",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+    "isPrototypeOf",
+    "propertyIsEnumerable",
+    "toLocaleString",
+    "clone",
+    "cloneInto",
+    "unwrap",
+    "expect",
+    "as_ref",
+    "as_mut",
+    "borrow",
+    "borrow_mut",
+    "iter",
+    "into_iter",
+    "collect",
+    "cloned",
+    "copied",
+    "take",
+    "and_then",
+    "or_else",
+    "unwrap_or",
+    "unwrap_or_else",
+    "ok_or",
+    "ok_or_else",
+    "map_err",
+    "into",
+    "from",
+    "as_str",
+    "to_string",
+    "to_owned",
+    "clone",
+    "is_empty",
+    "contains_key",
+    "insert",
+    "get",
+    "get_mut",
+    "remove",
+    "retain",
+    "drain",
+    "reserve",
+    "capacity",
+    "shrink_to",
+    "to_vec",
+    "into_vec",
+    "extend",
+    "dedup",
+    "reverse",
+    "rotate_left",
+    "rotate_right",
+    "sort",
+    "sort_by",
+    "sort_by_key",
+    "binary_search",
+    "binary_search_by",
+    "partition_point",
+    "split_at",
+    "chunks",
+    "windows",
+    "zip",
+    "enumerate",
+    "position",
+    "rposition",
+    "find_map",
+    "filter_map",
+    "flat_map",
+    "skip",
+    "skip_while",
+    "take_while",
+    "peekable",
+    "fuse",
+    "inspect",
+    "chain",
+    "cycle",
+    "sum",
+    "product",
+    "max",
+    "min",
+    "max_by",
+    "min_by",
+    "count",
+    "last",
+    "nth",
+    "step_by",
+    "any",
+    "all",
+    "ne",
+    "eq",
+    "cmp",
+    "partial_cmp",
+    "lt",
+    "le",
+    "gt",
+    "ge",
+    "neg",
+    "not",
 ];
 
 /// 过滤外部/内置调用，只保留项目 API 引用（scaffold 与边 2 共用）
@@ -684,7 +1037,9 @@ pub fn run_audit(
         &doc_paths,
         &mut skipped,
         &mut |result: &mut AuditResult| {
-            result.issues.extend(compare_code_docs(&result.code_apis, &result.doc_apis));
+            result
+                .issues
+                .extend(compare_code_docs(&result.code_apis, &result.doc_apis));
         },
         &mut result,
     );
@@ -696,7 +1051,9 @@ pub fn run_audit(
         &test_paths,
         &mut skipped,
         &mut |result: &mut AuditResult| {
-            result.issues.extend(compare_code_tests(&result.code_apis, &result.test_refs));
+            result
+                .issues
+                .extend(compare_code_tests(&result.code_apis, &result.test_refs));
         },
         &mut result,
     );
@@ -708,7 +1065,9 @@ pub fn run_audit(
         &test_paths,
         &mut skipped,
         &mut |result: &mut AuditResult| {
-            result.issues.extend(compare_tests_docs(&result.doc_apis, &result.test_refs));
+            result
+                .issues
+                .extend(compare_tests_docs(&result.doc_apis, &result.test_refs));
         },
         &mut result,
     );
@@ -750,9 +1109,18 @@ fn collect_code_apis(
 ) -> Vec<ApiSignature> {
     let mut apis = Vec::new();
     for file in collect_source_files(paths, root, excluded) {
-        let Some(ext) = file.extension().and_then(|e| e.to_str()) else { continue };
-        let Some(parser) = parsers.iter_mut().find(|p| p.file_extensions().contains(&ext)) else { continue };
-        let Ok(source) = std::fs::read_to_string(&file) else { continue };
+        let Some(ext) = file.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+        let Some(parser) = parsers
+            .iter_mut()
+            .find(|p| p.file_extensions().contains(&ext))
+        else {
+            continue;
+        };
+        let Ok(source) = std::fs::read_to_string(&file) else {
+            continue;
+        };
         apis.extend(extract_file_apis(parser.as_mut(), &file, &source));
     }
     apis
@@ -766,19 +1134,38 @@ fn collect_test_refs(
 ) -> Vec<TestRef> {
     let mut refs = Vec::new();
     for file in collect_source_files(paths, root, excluded) {
-        let Some(ext) = file.extension().and_then(|e| e.to_str()) else { continue };
-        let Some(parser) = parsers.iter_mut().find(|p| p.file_extensions().contains(&ext)) else { continue };
-        let Ok(source) = std::fs::read_to_string(&file) else { continue };
+        let Some(ext) = file.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+        let Some(parser) = parsers
+            .iter_mut()
+            .find(|p| p.file_extensions().contains(&ext))
+        else {
+            continue;
+        };
+        let Ok(source) = std::fs::read_to_string(&file) else {
+            continue;
+        };
         refs.extend(collect_file_refs(parser.as_mut(), &file, &source));
     }
     refs
 }
 
-fn collect_doc_apis(root: &Path, paths: &[String], excluded: &impl Fn(&str) -> bool) -> Vec<ApiSignature> {
+fn collect_doc_apis(
+    root: &Path,
+    paths: &[String],
+    excluded: &impl Fn(&str) -> bool,
+) -> Vec<ApiSignature> {
     let mut apis = Vec::new();
     for file in collect_doc_files(paths, root, excluded) {
-        let Ok(source) = std::fs::read_to_string(&file) else { continue };
-        let rel = file.strip_prefix(root).unwrap_or(&file).to_string_lossy().to_string();
+        let Ok(source) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(&file)
+            .to_string_lossy()
+            .to_string();
         apis.extend(parse_doc_apis(&source, &rel));
     }
     apis
@@ -801,7 +1188,11 @@ fn paths_exist(root: &Path, paths: &[String]) -> bool {
 }
 
 /// 收集文档文件（.md）
-fn collect_doc_files(paths: &[String], root: &Path, excluded: impl Fn(&str) -> bool) -> Vec<PathBuf> {
+fn collect_doc_files(
+    paths: &[String],
+    root: &Path,
+    excluded: impl Fn(&str) -> bool,
+) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for p in paths {
         let full = root.join(p);
@@ -817,7 +1208,11 @@ fn collect_doc_files(paths: &[String], root: &Path, excluded: impl Fn(&str) -> b
                 if path.extension().and_then(|e| e.to_str()) != Some("md") {
                     continue;
                 }
-                let rel = path.strip_prefix(root).unwrap_or(path).to_string_lossy().to_string();
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
                 if excluded(&rel) || path_skipped(path) {
                     continue;
                 }
@@ -832,11 +1227,19 @@ fn collect_doc_files(paths: &[String], root: &Path, excluded: impl Fn(&str) -> b
 // ============ 输出 ============
 
 /// 终端输出
-pub fn write_terminal<W: std::io::Write>(writer: &mut W, result: &AuditResult) -> Result<(), String> {
+pub fn write_terminal<W: std::io::Write>(
+    writer: &mut W,
+    result: &AuditResult,
+) -> Result<(), String> {
     if result.issues.is_empty() {
-        writeln!(writer, "✅ 对齐审计通过：代码 {} 个 API，文档 {} 个声明，测试 {} 处引用",
-            result.code_apis.len(), result.doc_apis.len(), result.test_refs.len())
-            .map_err(|e| e.to_string())?;
+        writeln!(
+            writer,
+            "✅ 对齐审计通过：代码 {} 个 API，文档 {} 个声明，测试 {} 处引用",
+            result.code_apis.len(),
+            result.doc_apis.len(),
+            result.test_refs.len()
+        )
+        .map_err(|e| e.to_string())?;
         return Ok(());
     }
     for issue in &result.issues {
@@ -858,11 +1261,19 @@ pub fn write_terminal<W: std::io::Write>(writer: &mut W, result: &AuditResult) -
     .map_err(|e| e.to_string())?;
 
     // 驱动提示：问题清单即下一步生成任务
-    if result.issues.iter().any(|i| i.issue_type == "测试引用不存在") {
+    if result
+        .issues
+        .iter()
+        .any(|i| i.issue_type == "测试引用不存在")
+    {
         writeln!(writer, "提示: 测试引用了未实现的 API——可用 `qtcloud-code scaffold code <测试文件>` 生成代码骨架（测试驱动）")
             .map_err(|e| e.to_string())?;
     }
-    if result.issues.iter().any(|i| i.issue_type == "文档声明无测试覆盖") {
+    if result
+        .issues
+        .iter()
+        .any(|i| i.issue_type == "文档声明无测试覆盖")
+    {
         writeln!(writer, "提示: 文档声明缺少测试——可用 `qtcloud-code scaffold tests <文档>` 生成测试骨架（文档驱动）")
             .map_err(|e| e.to_string())?;
     }
@@ -931,7 +1342,8 @@ pub struct Point { x: f64 }
 
     #[test]
     fn test_extract_go_apis_skips_unexported() {
-        let source = "package calc\n\nfunc Add(a, b int) int { return a + b }\n\nfunc helper() {}\n";
+        let source =
+            "package calc\n\nfunc Add(a, b int) int { return a + b }\n\nfunc helper() {}\n";
         let mut parser = crate::parser::go::GoParser::new().unwrap();
         let apis = extract_file_apis(&mut parser, Path::new("calc.go"), source);
         assert_eq!(apis.len(), 1);
@@ -954,7 +1366,8 @@ pub struct Point { x: f64 }
 
     #[test]
     fn test_parse_doc_apis_basic() {
-        let doc = "# API\n\n- `power(base, exp)`\n- `div(a, b)`\n\n```python\ndef add(x, y):\n```\n";
+        let doc =
+            "# API\n\n- `power(base, exp)`\n- `div(a, b)`\n\n```python\ndef add(x, y):\n```\n";
         let apis = parse_doc_apis(doc, "docs/api.md");
         assert_eq!(apis.len(), 3);
         assert_eq!(apis[0].name, "power");
@@ -1021,7 +1434,11 @@ fn test_add() {
         let refs = collect_file_refs(&mut parser, Path::new("tests/test_calc.rs"), source);
         let names: Vec<&str> = refs.iter().map(|r| r.name.as_str()).collect();
         assert!(names.contains(&"add"), "add 应在引用中, got: {:?}", names);
-        assert!(names.contains(&"mult"), "mult（scoped）应在引用中, got: {:?}", names);
+        assert!(
+            names.contains(&"mult"),
+            "mult（scoped）应在引用中, got: {:?}",
+            names
+        );
         let add = refs.iter().find(|r| r.name == "add").unwrap();
         assert_eq!(add.arg_count, 2);
         let mult = refs.iter().find(|r| r.name == "mult").unwrap();
@@ -1030,7 +1447,8 @@ fn test_add() {
 
     #[test]
     fn test_collect_python_refs() {
-        let source = "from calc import add\ndef test_add():\n    assert add(1, 2) == 3\n    print('ok')\n";
+        let source =
+            "from calc import add\ndef test_add():\n    assert add(1, 2) == 3\n    print('ok')\n";
         let mut parser = crate::parser::python::PythonParser::new().unwrap();
         let refs = collect_file_refs(&mut parser, Path::new("tests/test_calc.py"), source);
         let names: Vec<&str> = refs.iter().map(|r| r.name.as_str()).collect();
@@ -1079,7 +1497,10 @@ fn test_add() {
     #[test]
     fn test_compare_code_docs_doc_without_code() {
         let code = vec![api("add", &["a", "b"])];
-        let docs = vec![doc_api("add", &["a", "b"], 1), doc_api("mul", &["a", "b"], 2)];
+        let docs = vec![
+            doc_api("add", &["a", "b"], 1),
+            doc_api("mul", &["a", "b"], 2),
+        ];
         let issues = compare_code_docs(&code, &docs);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue_type, "文档有代码无");
@@ -1136,7 +1557,10 @@ fn test_add() {
 
     #[test]
     fn test_compare_tests_docs() {
-        let docs = vec![doc_api("add", &["a", "b"], 1), doc_api("mul", &["a", "b"], 2)];
+        let docs = vec![
+            doc_api("add", &["a", "b"], 1),
+            doc_api("mul", &["a", "b"], 2),
+        ];
         let refs = vec![TestRef {
             name: "add".into(),
             arg_count: 2,
@@ -1157,8 +1581,16 @@ fn test_add() {
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::create_dir_all(root.join("tests")).unwrap();
         std::fs::create_dir_all(root.join("docs")).unwrap();
-        std::fs::write(root.join("src/calc.py"), "def add(a, b):\n    return a + b\n").unwrap();
-        std::fs::write(root.join("tests/test_calc.py"), "from calc import add\ndef test_add():\n    assert add(1, 2) == 3\n").unwrap();
+        std::fs::write(
+            root.join("src/calc.py"),
+            "def add(a, b):\n    return a + b\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("tests/test_calc.py"),
+            "from calc import add\ndef test_add():\n    assert add(1, 2) == 3\n",
+        )
+        .unwrap();
         std::fs::write(root.join("docs/api.md"), "# API\n\n- `add(a, b)`\n").unwrap();
         let (result, skipped) = run_audit(root, None, |_| false);
         assert!(result.is_clean(), "应无问题, got: {:?}", result.issues);
@@ -1186,15 +1618,43 @@ fn test_add() {
             "from calc import div, ghost\ndef test_div():\n    assert div(1, 2) == 0.5\n    ghost(1)\n",
         )
         .unwrap();
-        std::fs::write(root.join("docs/api.md"), "# API\n\n- `div(a, b, c)`\n- `mul(a, b)`\n").unwrap();
+        std::fs::write(
+            root.join("docs/api.md"),
+            "# API\n\n- `div(a, b, c)`\n- `mul(a, b)`\n",
+        )
+        .unwrap();
         let (result, _) = run_audit(root, None, |_| false);
         assert!(!result.is_clean());
-        let types: Vec<&str> = result.issues.iter().map(|i| i.issue_type.as_str()).collect();
-        assert!(types.contains(&"代码有文档无"), "pow 应缺文档, got: {:?}", types);
-        assert!(types.contains(&"签名不一致"), "div 签名不一致, got: {:?}", types);
-        assert!(types.contains(&"文档有代码无"), "mul 应缺实现, got: {:?}", types);
-        assert!(types.contains(&"测试引用不存在"), "ghost 应不存在, got: {:?}", types);
-        assert!(types.contains(&"文档声明无测试覆盖"), "mul 应无测试覆盖, got: {:?}", types);
+        let types: Vec<&str> = result
+            .issues
+            .iter()
+            .map(|i| i.issue_type.as_str())
+            .collect();
+        assert!(
+            types.contains(&"代码有文档无"),
+            "pow 应缺文档, got: {:?}",
+            types
+        );
+        assert!(
+            types.contains(&"签名不一致"),
+            "div 签名不一致, got: {:?}",
+            types
+        );
+        assert!(
+            types.contains(&"文档有代码无"),
+            "mul 应缺实现, got: {:?}",
+            types
+        );
+        assert!(
+            types.contains(&"测试引用不存在"),
+            "ghost 应不存在, got: {:?}",
+            types
+        );
+        assert!(
+            types.contains(&"文档声明无测试覆盖"),
+            "mul 应无测试覆盖, got: {:?}",
+            types
+        );
     }
 
     #[test]
@@ -1203,7 +1663,11 @@ fn test_add() {
         let root = dir.path();
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::create_dir_all(root.join("docs")).unwrap();
-        std::fs::write(root.join("src/calc.py"), "def add(a, b):\n    return a + b\n").unwrap();
+        std::fs::write(
+            root.join("src/calc.py"),
+            "def add(a, b):\n    return a + b\n",
+        )
+        .unwrap();
         std::fs::write(root.join("docs/api.md"), "`add(a, b)`\n").unwrap();
         // exclude 掉 src/calc.py → 代码 API 为空 → add 文档有代码无
         let (result, _) = run_audit(root, None, |rel| rel == "src/calc.py");
@@ -1217,11 +1681,19 @@ fn test_add() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::write(root.join("src/calc.py"), "def add(a, b):\n    return a + b\n").unwrap();
+        std::fs::write(
+            root.join("src/calc.py"),
+            "def add(a, b):\n    return a + b\n",
+        )
+        .unwrap();
         // 无 tests/docs 目录 → 边跳过
         let (result, skipped) = run_audit(root, None, |_| false);
         assert!(result.is_clean());
-        assert!(!skipped.is_empty(), "应提示跳过缺失路径, got: {:?}", skipped);
+        assert!(
+            !skipped.is_empty(),
+            "应提示跳过缺失路径, got: {:?}",
+            skipped
+        );
     }
 
     #[test]
@@ -1231,8 +1703,16 @@ fn test_add() {
         std::fs::create_dir_all(root.join("lib")).unwrap();
         std::fs::create_dir_all(root.join("spec")).unwrap();
         std::fs::create_dir_all(root.join("api")).unwrap();
-        std::fs::write(root.join("lib/calc.py"), "def add(a, b):\n    return a + b\n").unwrap();
-        std::fs::write(root.join("spec/test_calc.py"), "def test_add():\n    assert add(1, 2) == 3\n").unwrap();
+        std::fs::write(
+            root.join("lib/calc.py"),
+            "def add(a, b):\n    return a + b\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("spec/test_calc.py"),
+            "def test_add():\n    assert add(1, 2) == 3\n",
+        )
+        .unwrap();
         std::fs::write(root.join("api/api.md"), "`add(a, b)`\n").unwrap();
         let config = AuditConfig {
             code: Some(vec!["lib".into()]),
@@ -1241,7 +1721,11 @@ fn test_add() {
             edges: None,
         };
         let (result, _) = run_audit(root, Some(&config), |_| false);
-        assert!(result.is_clean(), "自定义路径应通过, got: {:?}", result.issues);
+        assert!(
+            result.is_clean(),
+            "自定义路径应通过, got: {:?}",
+            result.issues
+        );
     }
 
     #[test]
@@ -1269,7 +1753,11 @@ fn test_add() {
             edges: Some(vec!["code-tests".into(), "tests-docs".into()]),
         };
         let (result, _) = run_audit(root, Some(&config), |_| false);
-        assert!(result.is_clean(), "关闭 code-docs 边后应无问题, got: {:?}", result.issues);
+        assert!(
+            result.is_clean(),
+            "关闭 code-docs 边后应无问题, got: {:?}",
+            result.issues
+        );
     }
 
     #[test]

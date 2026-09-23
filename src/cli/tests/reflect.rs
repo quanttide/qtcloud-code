@@ -103,7 +103,11 @@ fn test_reflect_help_succeeds() {
 #[test]
 fn test_reflect_no_subcommand_shows_help_or_error() {
     let output = cli().arg("reflect").output().unwrap();
-    let combined = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(combined.contains("slice") || combined.contains("Usage"));
 }
 
@@ -113,21 +117,35 @@ fn test_reflect_no_subcommand_shows_help_or_error() {
 fn test_slice_basic() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("slice")
-        .arg(fx.path.to_str().unwrap()).arg("14")
-        .output().unwrap();
-    assert!(output.status.success(), "slice failed: {}", String::from_utf8_lossy(&output.stderr));
+        .arg("reflect")
+        .arg("slice")
+        .arg(fx.path.to_str().unwrap())
+        .arg("14")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "slice failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("L14") || stdout.contains("L13"), "expected trace lines, got: {}", stdout);
+    assert!(
+        stdout.contains("L14") || stdout.contains("L13"),
+        "expected trace lines, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_slice_empty_result() {
     let fx = rust_fixture("empty.rs", "// just a comment\n");
     let output = cli()
-        .arg("reflect").arg("slice")
-        .arg(fx.path.to_str().unwrap()).arg("1")
-        .output().unwrap();
+        .arg("reflect")
+        .arg("slice")
+        .arg(fx.path.to_str().unwrap())
+        .arg("1")
+        .output()
+        .unwrap();
     assert_eq!(output.status.code(), Some(1), "行号在函数体外应退出 1");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("未找到追溯结果"), "got: {}", stderr);
@@ -136,9 +154,12 @@ fn test_slice_empty_result() {
 #[test]
 fn test_slice_nonexistent_file() {
     let output = cli()
-        .arg("reflect").arg("slice")
-        .arg("/nonexistent/test.rs").arg("1")
-        .output().unwrap();
+        .arg("reflect")
+        .arg("slice")
+        .arg("/nonexistent/test.rs")
+        .arg("1")
+        .output()
+        .unwrap();
     assert_eq!(output.status.code(), Some(2), "文件不存在应退出 2");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(!stderr.is_empty(), "stderr 应有错误信息");
@@ -148,11 +169,18 @@ fn test_slice_nonexistent_file() {
 fn test_slice_json() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("slice")
-        .arg(fx.path.to_str().unwrap()).arg("14")
+        .arg("reflect")
+        .arg("slice")
+        .arg(fx.path.to_str().unwrap())
+        .arg("14")
         .arg("--json")
-        .output().unwrap();
-    assert!(output.status.success(), "slice --json failed: {}", String::from_utf8_lossy(&output.stderr));
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "slice --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.is_array());
@@ -167,46 +195,82 @@ fn test_slice_json() {
 fn test_trace_basic() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("trace")
-        .arg(fx.path.to_str().unwrap()).arg("price_int").arg("14")
-        .output().unwrap();
-    assert!(output.status.success(), "trace failed: {}", String::from_utf8_lossy(&output.stderr));
+        .arg("reflect")
+        .arg("trace")
+        .arg(fx.path.to_str().unwrap())
+        .arg("price_int")
+        .arg("14")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "trace failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("price_int") || stdout.contains("price_str"),
-        "expected trace of price_int, got: {}", stdout);
+    assert!(
+        stdout.contains("price_int") || stdout.contains("price_str"),
+        "expected trace of price_int, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_trace_without_line() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("trace")
-        .arg(fx.path.to_str().unwrap()).arg("price_int")
-        .output().unwrap();
-    assert!(output.status.success(), "trace without line failed: {}", String::from_utf8_lossy(&output.stderr));
+        .arg("reflect")
+        .arg("trace")
+        .arg(fx.path.to_str().unwrap())
+        .arg("price_int")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "trace without line failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("price_int"), "expected trace of price_int, got: {}", stdout);
+    assert!(
+        stdout.contains("price_int"),
+        "expected trace of price_int, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_trace_nonexistent_var() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("trace")
-        .arg(fx.path.to_str().unwrap()).arg("nonexistent_var_xyz")
-        .output().unwrap();
-    assert!(!output.status.success(), "expected non-zero exit for nonexistent var");
+        .arg("reflect")
+        .arg("trace")
+        .arg(fx.path.to_str().unwrap())
+        .arg("nonexistent_var_xyz")
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit for nonexistent var"
+    );
 }
 
 #[test]
 fn test_trace_json() {
     let fx = rust_fixture("test.rs", RUST_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("trace")
-        .arg(fx.path.to_str().unwrap()).arg("price_int").arg("14")
+        .arg("reflect")
+        .arg("trace")
+        .arg(fx.path.to_str().unwrap())
+        .arg("price_int")
+        .arg("14")
         .arg("--json")
-        .output().unwrap();
-    assert!(output.status.success(), "trace --json failed: {}", String::from_utf8_lossy(&output.stderr));
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "trace --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.is_array());
@@ -220,34 +284,51 @@ fn test_trace_json() {
 fn test_graph_basic() {
     let fx = rust_fixture("multi.rs", RUST_MULTI_FUNC);
     let output = cli()
-        .arg("reflect").arg("graph")
+        .arg("reflect")
+        .arg("graph")
         .arg(fx.path.to_str().unwrap())
-        .output().unwrap();
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("helper") || stdout.contains("process") || stdout.contains("main"),
-        "expected function names, got: {}", stdout);
+    assert!(
+        stdout.contains("helper") || stdout.contains("process") || stdout.contains("main"),
+        "expected function names, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_graph_empty() {
     let fx = rust_fixture("empty.rs", "// just a comment\n");
     let output = cli()
-        .arg("reflect").arg("graph")
+        .arg("reflect")
+        .arg("graph")
         .arg(fx.path.to_str().unwrap())
-        .output().unwrap();
-    assert_eq!(output.status.code(), Some(1), "expected exit code 1 for empty graph");
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1 for empty graph"
+    );
 }
 
 #[test]
 fn test_graph_json() {
     let fx = rust_fixture("multi.rs", RUST_MULTI_FUNC);
     let output = cli()
-        .arg("reflect").arg("graph")
+        .arg("reflect")
+        .arg("graph")
         .arg(fx.path.to_str().unwrap())
         .arg("--json")
-        .output().unwrap();
-    assert!(output.status.success(), "graph --json failed: {}", String::from_utf8_lossy(&output.stderr));
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "graph --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.is_array());
@@ -261,37 +342,64 @@ fn test_graph_json() {
 fn test_suggest_basic() {
     let fx = rust_fixture("suspicious.rs", RUST_WITH_SUSPICIOUS);
     let output = cli()
-        .arg("reflect").arg("suggest")
+        .arg("reflect")
+        .arg("suggest")
         .arg(fx.path.to_str().unwrap())
-        .output().unwrap();
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("return") || stdout.contains("panic") || stdout.contains("unsafe")
-        || stdout.contains("cast") || stdout.contains("parse"),
-        "expected suggestion categories, got: {}", stdout);
+    assert!(
+        stdout.contains("return")
+            || stdout.contains("panic")
+            || stdout.contains("unsafe")
+            || stdout.contains("cast")
+            || stdout.contains("parse"),
+        "expected suggestion categories, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_suggest_clean_file() {
-    let fx = rust_fixture("clean.rs", "fn main() { let x = 42; println!(\"{}\", x); }\n");
+    let fx = rust_fixture(
+        "clean.rs",
+        "fn main() { let x = 42; println!(\"{}\", x); }\n",
+    );
     let output = cli()
-        .arg("reflect").arg("suggest")
+        .arg("reflect")
+        .arg("suggest")
         .arg(fx.path.to_str().unwrap())
-        .output().unwrap();
-    assert_eq!(output.status.code(), Some(1), "expected exit code 1 for clean file");
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1 for clean file"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("未发现"), "expected 'no suspicious lines' message, got: {}", stderr);
+    assert!(
+        stderr.contains("未发现"),
+        "expected 'no suspicious lines' message, got: {}",
+        stderr
+    );
 }
 
 #[test]
 fn test_suggest_json() {
     let fx = rust_fixture("suspicious.rs", RUST_WITH_SUSPICIOUS);
     let output = cli()
-        .arg("reflect").arg("suggest")
+        .arg("reflect")
+        .arg("suggest")
         .arg(fx.path.to_str().unwrap())
         .arg("--json")
-        .output().unwrap();
-    assert!(output.status.success(), "suggest --json failed: {}", String::from_utf8_lossy(&output.stderr));
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "suggest --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.is_array());
@@ -305,31 +413,52 @@ fn test_suggest_json() {
 fn test_slice_python() {
     let fx = rust_fixture("order.py", PYTHON_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("slice")
-        .arg(fx.path.to_str().unwrap()).arg("9")
-        .output().unwrap();
+        .arg("reflect")
+        .arg("slice")
+        .arg(fx.path.to_str().unwrap())
+        .arg("9")
+        .output()
+        .unwrap();
     let code = output.status.code();
-    assert_eq!(code, Some(0),
-        "expected exit 0 for Python slice, got: {:?}", code);
+    assert_eq!(
+        code,
+        Some(0),
+        "expected exit 0 for Python slice, got: {:?}",
+        code
+    );
 }
 
 #[test]
 fn test_trace_go() {
     let fx = rust_fixture("order.go", GO_PROCESS_ORDER);
     let output = cli()
-        .arg("reflect").arg("trace")
-        .arg(fx.path.to_str().unwrap()).arg("price")
-        .output().unwrap();
+        .arg("reflect")
+        .arg("trace")
+        .arg(fx.path.to_str().unwrap())
+        .arg("price")
+        .output()
+        .unwrap();
     let code = output.status.code();
-    assert_eq!(code, Some(0),
-        "expected exit 0 for Go trace, got: {:?} — stderr: {}", code, String::from_utf8_lossy(&output.stderr));
+    assert_eq!(
+        code,
+        Some(0),
+        "expected exit 0 for Go trace, got: {:?} — stderr: {}",
+        code,
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("price"), "expected trace of price, got: {}", stdout);
+    assert!(
+        stdout.contains("price"),
+        "expected trace of price, got: {}",
+        stdout
+    );
 }
 
 #[test]
 fn test_graph_typescript() {
-    let fx = rust_fixture("order.ts", r#"
+    let fx = rust_fixture(
+        "order.ts",
+        r#"
 function parsePrice(s: string): number { return parseFloat(s); }
 function parseQty(s: string): number { return parseInt(s, 10); }
 function processOrder(input: string): string {
@@ -338,12 +467,19 @@ function processOrder(input: string): string {
     const qty = parseQty(parts[2]);
     return `${parts[0]}: $${(price * qty).toFixed(2)}`;
 }
-"#);
+"#,
+    );
     let output = cli()
-        .arg("reflect").arg("graph")
+        .arg("reflect")
+        .arg("graph")
         .arg(fx.path.to_str().unwrap())
-        .output().unwrap();
+        .output()
+        .unwrap();
     let code = output.status.code();
-    assert_eq!(code, Some(0),
-        "expected exit 0 for TS graph, got: {:?}", code);
+    assert_eq!(
+        code,
+        Some(0),
+        "expected exit 0 for TS graph, got: {:?}",
+        code
+    );
 }

@@ -8,7 +8,10 @@ pub const DESCRIPTION: &str = "未使用变量（通过 rustc/cargo check 检测
 
 const WARNING_CODES: &[&str] = &["unused_variables", "unused_mut"];
 
-pub fn check_compiler(project_root: &Path, enabled_rules: &[String]) -> Result<Vec<Finding>, String> {
+pub fn check_compiler(
+    project_root: &Path,
+    enabled_rules: &[String],
+) -> Result<Vec<Finding>, String> {
     if !enabled_rules.contains(&RULE_ID.to_string()) {
         return Ok(vec![]);
     }

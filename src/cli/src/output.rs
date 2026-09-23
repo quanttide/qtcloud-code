@@ -12,9 +12,15 @@ macro_rules! writeln_err {
 }
 
 /// review 的 JSON 输出（含 LLM 增强）——docs/dev/review.md 定义的格式
-pub fn write_review_json<W: Write>(writer: &mut W, findings: &[EnrichedFinding]) -> Result<(), String> {
+pub fn write_review_json<W: Write>(
+    writer: &mut W,
+    findings: &[EnrichedFinding],
+) -> Result<(), String> {
     let llm_count = findings.iter().filter(|f| f.llm.is_some()).count();
-    let semantic_count = findings.iter().filter(|f| f.rule_id == "llm-semantic").count();
+    let semantic_count = findings
+        .iter()
+        .filter(|f| f.rule_id == "llm-semantic")
+        .count();
     let engine_count = findings.len() - semantic_count;
     let output = serde_json::json!({
         "mode": "review",
@@ -27,7 +33,10 @@ pub fn write_review_json<W: Write>(writer: &mut W, findings: &[EnrichedFinding])
 }
 
 /// review 的终端输出（含 LLM 增强行）
-pub fn write_review_terminal<W: Write>(writer: &mut W, findings: &[EnrichedFinding]) -> Result<(), String> {
+pub fn write_review_terminal<W: Write>(
+    writer: &mut W,
+    findings: &[EnrichedFinding],
+) -> Result<(), String> {
     if findings.is_empty() {
         writeln_err!(writer, "未发现问题")?;
         return Ok(());
@@ -41,13 +50,20 @@ pub fn write_review_terminal<W: Write>(writer: &mut W, findings: &[EnrichedFindi
         writeln_err!(
             writer,
             "{} [{}] {}:{}  {}  {}",
-            icon, tag, f.file, f.line, f.rule_id, f.message
+            icon,
+            tag,
+            f.file,
+            f.line,
+            f.rule_id,
+            f.message
         )?;
         if let Some(llm) = &f.llm {
             writeln_err!(
                 writer,
                 "    ↳ LLM [{}] {} ({})",
-                llm.priority, llm.explanation, llm.confidence
+                llm.priority,
+                llm.explanation,
+                llm.confidence
             )?;
         }
     }
@@ -87,7 +103,12 @@ pub fn write_terminal<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<
         writeln_err!(
             writer,
             "{} [{}] {}:{}  {}  {}",
-            icon, tag, f.file_path.display(), f.line, f.rule_id, f.message
+            icon,
+            tag,
+            f.file_path.display(),
+            f.line,
+            f.rule_id,
+            f.message
         )?;
     }
     Ok(())
@@ -101,7 +122,11 @@ pub fn write_status<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<()
 
     writeln_err!(writer, "# Code Scan Status")?;
     writeln_err!(writer)?;
-    writeln_err!(writer, "> 自动生成于 qtcloud-code review，时间戳: {}", timestamp)?;
+    writeln_err!(
+        writer,
+        "> 自动生成于 qtcloud-code review，时间戳: {}",
+        timestamp
+    )?;
     writeln_err!(writer)?;
 
     write_status_summary(writer, findings)?;
@@ -116,9 +141,18 @@ pub fn write_status<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<()
 
 fn write_status_summary<W: Write>(writer: &mut W, findings: &[Finding]) -> Result<(), String> {
     let total = findings.len();
-    let must = findings.iter().filter(|f| f.severity == Severity::Must).count();
-    let should = findings.iter().filter(|f| f.severity == Severity::Should).count();
-    let may = findings.iter().filter(|f| f.severity == Severity::May).count();
+    let must = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Must)
+        .count();
+    let should = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Should)
+        .count();
+    let may = findings
+        .iter()
+        .filter(|f| f.severity == Severity::May)
+        .count();
 
     writeln_err!(writer, "## 汇总")?;
     writeln_err!(writer)?;
@@ -226,7 +260,16 @@ fn write_status_details<W: Write>(writer: &mut W, findings: &[Finding]) -> Resul
                 Severity::Should => ("🟡", "SHOULD"),
                 Severity::May => ("🔵", "MAY"),
             };
-            writeln_err!(writer, "  - {} **{}** `{}` {}:{} — {}", icon, tag, f.rule_id, f.line, f.column, f.message)?;
+            writeln_err!(
+                writer,
+                "  - {} **{}** `{}` {}:{} — {}",
+                icon,
+                tag,
+                f.rule_id,
+                f.line,
+                f.column,
+                f.message
+            )?;
         }
     }
 

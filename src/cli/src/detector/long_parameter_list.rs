@@ -6,7 +6,12 @@ const MAY_THRESHOLD: usize = 4;
 const SHOULD_THRESHOLD: usize = 6;
 const MUST_THRESHOLD: usize = 9;
 
-const FUNCTION_NODE_KINDS: &[&str] = &["function_item", "function_definition", "function_declaration", "method_declaration"];
+const FUNCTION_NODE_KINDS: &[&str] = &[
+    "function_item",
+    "function_definition",
+    "function_declaration",
+    "method_declaration",
+];
 
 pub struct LongParameterListDetector;
 
@@ -24,7 +29,8 @@ impl Detector for LongParameterListDetector {
         super::walk_tree(tree, |node| {
             if FUNCTION_NODE_KINDS.contains(&node.kind()) {
                 let param_count = find_parameters_node(&node)
-                    .as_ref().map(|p| count_params(p))
+                    .as_ref()
+                    .map(|p| count_params(p))
                     .unwrap_or(0);
 
                 if let Some(severity) = classify(param_count) {
@@ -44,7 +50,9 @@ impl Detector for LongParameterListDetector {
     }
 }
 
-fn find_parameters_node<'tree>(node: &tree_sitter::Node<'tree>) -> Option<tree_sitter::Node<'tree>> {
+fn find_parameters_node<'tree>(
+    node: &tree_sitter::Node<'tree>,
+) -> Option<tree_sitter::Node<'tree>> {
     if let Some(params) = node.child_by_field_name("parameters") {
         return Some(params);
     }
@@ -162,7 +170,9 @@ mod tests {
 
     fn make_rust_tree(source: &str) -> (String, tree_sitter::Tree) {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_rust::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_rust::LANGUAGE.into())
+            .unwrap();
         let tree = parser.parse(source, None).unwrap();
         (source.to_string(), tree)
     }
@@ -176,7 +186,8 @@ mod tests {
 
     #[test]
     fn test_many_params_should() {
-        let (source, tree) = make_rust_tree("fn f(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32, g: i32) {}");
+        let (source, tree) =
+            make_rust_tree("fn f(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32, g: i32) {}");
         let findings = LongParameterListDetector.detect(&source, &tree, &PathBuf::from("f.rs"));
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, Severity::Should);
@@ -196,7 +207,9 @@ mod tests {
     #[test]
     fn test_python_many_params() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_python::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_python::LANGUAGE.into())
+            .unwrap();
         let source = "def f(a, b, c, d, e, f, g): pass";
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.py"));
@@ -207,7 +220,9 @@ mod tests {
     #[test]
     fn test_go_many_params() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_go::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_go::LANGUAGE.into())
+            .unwrap();
         let source = "package main\nfunc f(a, b, c, d, e, f, g int) {}";
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.go"));
@@ -218,7 +233,9 @@ mod tests {
     #[test]
     fn test_go_few_params_shared_type() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_go::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_go::LANGUAGE.into())
+            .unwrap();
         let source = "package main\nfunc f(a, b int) {}";
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.go"));
@@ -228,7 +245,9 @@ mod tests {
     #[test]
     fn test_dart_many_params() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_dart::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_dart::LANGUAGE.into())
+            .unwrap();
         let source = "void f(a, b, c, d, e, f, g) {}";
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.dart"));
@@ -239,7 +258,9 @@ mod tests {
     #[test]
     fn test_dart_few_params_no_finding() {
         let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&tree_sitter_dart::LANGUAGE.into()).unwrap();
+        parser
+            .set_language(&tree_sitter_dart::LANGUAGE.into())
+            .unwrap();
         let source = "void f(a, b) {}";
         let tree = parser.parse(source, None).unwrap();
         let findings = LongParameterListDetector.detect(source, &tree, &PathBuf::from("f.dart"));
