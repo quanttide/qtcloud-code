@@ -4,7 +4,7 @@
 //! 已安装的 CLI），目标目录参数化（默认当前目录），报告输出到标准输出，
 //! 未配置 LLM 时跳过。
 //!
-//! 运行：`QTTCODE_LLM_API_KEY=sk-... cargo run --example false_positive_filter [-- <目标目录>]`
+//! 运行：`LLM_API_KEY=sk-... cargo run --example false_positive_filter [-- <目标目录>]`
 
 use std::path::Path;
 
@@ -15,7 +15,7 @@ fn main() {
     let api_key = match qtcloud_code_cli::llm::get_api_key() {
         Ok(k) => k,
         Err(_) => {
-            eprintln!("未配置 QTTCODE_LLM_API_KEY，跳过 LLM 复核");
+            eprintln!("未配置 LLM_API_KEY，跳过 LLM 复核");
             return;
         }
     };

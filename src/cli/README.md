@@ -95,7 +95,7 @@ audit 红态输出会提示下一步：测试引用未实现 API 时提示 `scaf
 通过环境变量配置 OpenAI 兼容接口，未配置时自动回退 lint 模式：
 
 ```sh
-export QTTCODE_LLM_API_KEY=sk-xxx
+export LLM_API_KEY=sk-xxx
 export QTTCODE_LLM_BASE_URL=https://api.openai.com/v1   # 可选
 export QTTCODE_LLM_MODEL=gpt-4o-mini                     # 可选
 ```

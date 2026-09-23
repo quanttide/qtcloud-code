@@ -1,5 +1,9 @@
 # Changelog
 
+## [未发布]
+
+- **破坏性**：LLM API Key 环境变量 `QTTCODE_LLM_API_KEY` 更名为 `LLM_API_KEY`（`QTTCODE_LLM_BASE_URL`、`QTTCODE_LLM_MODEL` 不变）
+
 ## [0.3.1] — 2026-08-16
 
 - **`scaffold` 命令：文档驱动 / 测试驱动骨架生成**（与 audit 组成约束驱动生成闭环）

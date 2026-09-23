@@ -74,7 +74,7 @@ fn test_review_lint_mode() {
 fn test_review_llm_mode_falls_back_without_key() {
     let fixture = fixture_path();
     let output = cli()
-        .env_remove("QTTCODE_LLM_API_KEY")
+        .env_remove("LLM_API_KEY")
         .arg("review")
         .arg(&fixture)
         .arg("--mode")
@@ -94,7 +94,7 @@ fn test_review_llm_mode_falls_back_without_key() {
 fn test_review_deep_mode_falls_back_without_key() {
     let fixture = fixture_path();
     let output = cli()
-        .env_remove("QTTCODE_LLM_API_KEY")
+        .env_remove("LLM_API_KEY")
         .arg("review")
         .arg(&fixture)
         .arg("--mode")

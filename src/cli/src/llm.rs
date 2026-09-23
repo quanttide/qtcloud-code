@@ -6,7 +6,7 @@
 //! - `deep` — 规则引擎 + LLM 审查 + 修复建议（修复由 AI 按问题清单直接完成，需人工审核）
 //!
 //! LLM 配置（环境变量）：
-//! - `QTTCODE_LLM_API_KEY`（必需）
+//! - `LLM_API_KEY`（必需）
 //! - `QTTCODE_LLM_BASE_URL`（默认 https://api.openai.com/v1，OpenAI 兼容接口）
 //! - `QTTCODE_LLM_MODEL`（默认 gpt-4o-mini）
 //!
@@ -75,7 +75,7 @@ pub fn run_llm_stage(mode: &str, findings: &[Finding]) -> Result<Vec<EnrichedFin
                 Ok(k) => k,
                 Err(_) => {
                     eprintln!(
-                        "警告: 未配置 QTTCODE_LLM_API_KEY，--mode {} 回退为 lint（仅规则引擎）",
+                        "警告: 未配置 LLM_API_KEY，--mode {} 回退为 lint（仅规则引擎）",
                         mode
                     );
                     return Ok(findings.iter().map(plain).collect());
@@ -215,12 +215,12 @@ pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<Enriche
     out
 }
 
-/// 读取 LLM API Key（环境变量 `QTTCODE_LLM_API_KEY`）
+/// 读取 LLM API Key（环境变量 `LLM_API_KEY`）
 pub fn get_api_key() -> Result<String, String> {
-    std::env::var("QTTCODE_LLM_API_KEY")
+    std::env::var("LLM_API_KEY")
         .ok()
         .filter(|k| !k.is_empty())
-        .ok_or_else(|| "未配置 QTTCODE_LLM_API_KEY 环境变量".to_string())
+        .ok_or_else(|| "未配置 LLM_API_KEY 环境变量".to_string())
 }
 
 /// 调用 OpenAI 兼容的 chat/completions 接口：`system` 为系统提示，`prompt` 为用户输入
@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn test_llm_mode_without_key_falls_back() {
         // 确保环境变量不存在
-        unsafe { std::env::remove_var("QTTCODE_LLM_API_KEY") };
+        unsafe { std::env::remove_var("LLM_API_KEY") };
         let findings = vec![finding("long-function", 53, "函数过长")];
         let out = run_llm_stage("llm", &findings).unwrap();
         assert_eq!(out.len(), 1);
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_deep_mode_without_key_falls_back() {
-        unsafe { std::env::remove_var("QTTCODE_LLM_API_KEY") };
+        unsafe { std::env::remove_var("LLM_API_KEY") };
         let findings = vec![finding("long-function", 53, "函数过长")];
         let out = run_llm_stage("deep", &findings).unwrap();
         assert_eq!(out.len(), 1);
