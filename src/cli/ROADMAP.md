@@ -50,15 +50,15 @@ src/reflect/
 
 ## 阶段二 重构 main.rs
 
-先起草 `graph` 新 JSON 契约（函数节点加调用边），直接落入 `docs/user-guide/reflect.md`——先写契约，后改测试（D10）。`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变；`build_call_graph` 过滤第三方库调用，避免调用数虚高（D15）。
+`build_call_graph` 的 callee 语义先按真实案例暴露的问题拆解（D15）：取终末方法短名并剔除闭包体、项目内调用过滤复用 `audit::project_refs`、输出单行限长；语义定型后再起草 `graph` 新 JSON 契约（函数节点加调用边），直接落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）。`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变，并移植 `main.rs` 既有的多语言函数定位——lab 实现仅识别 Rust 节点，直接接线会在 py/go 上回归（py 探针已验证，详见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷）。
 
-`tests/reflect.rs` 四个子命令的断言全部按新实现重写，对照退回 git 历史人工比对（D9）。`trace_variable` 本轮补齐跨函数追踪，`suggest` 保留文本实现；`ListRules` 加 `#[deprecated]` 指向 `contract list`，下一个 minor 移除（D15）。
+`tests/reflect.rs` 四个子命令的断言全部按新实现重写，对照退回 git 历史人工比对（D9）。`trace_variable` 本轮补齐跨函数追踪；`suggest` 保留文本实现、词表按真实案例校准——cast 放宽到任意 `as` 类型（现仅认 f64/i32，真实转换多为 usize/u64）、增补 unwrap/expect、return 类按发现分级降权；`ListRules` 加 `#[deprecated]` 指向 `contract list`，下一个 minor 移除（D15）。
 
 `graph` 由桩升级为真实调用图、`slice`、`trace` 由文本匹配升级为 AST 追溯，属新增功能而非回归。
 
 ## 阶段三 验收
 
-功能不变以 CLI 契约为准（D8）：`tests/reflect.rs` 全绿，`slice`、`trace`、`suggest` 的参数、退出码与 JSON 结构同既有实现，`suggest` 输出一致；重构前行为对照以 git 历史中的既有实现为准，不留额外快照（D9）。`graph` 按新 JSON 契约验收（D10）；新增功能以真实调用图、跨函数追踪与 `analysis.rs` 四项能力的单元测试为准（D11）。
+功能不变以 CLI 契约为准（D8）：`tests/reflect.rs` 全绿，`slice`、`trace`、`suggest` 的参数、退出码与 JSON 结构同既有实现，`suggest` 输出一致；重构前行为对照以 git 历史中的既有实现为准，不留额外快照（D9）。`graph` 按新 JSON 契约验收（D10），并以 `assets/fixtures/search.rs` 快照测试锁定输出质量；新增功能以真实调用图、跨函数追踪与 `analysis.rs` 四项能力的单元测试为准（D11）。
 
 ```sh
 cargo build --examples
@@ -70,11 +70,13 @@ cargo run -- audit .
 
 ## 收尾
 
-同步 README、AGENTS.md、CHANGEMAP 与 ROADMAP；`docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md` 必须同步，`docs/dev-guide/reflect.md` 按实现变更幅度决定（D16）。登记本轮未完成项。`apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针。
+同步 README、AGENTS.md、CHANGELOG 与 ROADMAP；`docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md` 必须同步，`docs/dev-guide/reflect.md` 按实现变更幅度决定（D16）。登记本轮未完成项。`apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针。
 
 ## 下轮 backlog
 
-`ListRules` 废弃与 `build_call_graph` 过滤第三方调用已并入本轮（D15），以下两项登记下轮：
+`ListRules` 废弃与 `build_call_graph` 过滤第三方调用已并入本轮（D15），以下三项登记下轮：
+
+- reflect 与 refactor 的语义缺陷批量修复：多语言节点识别、声明表作用域语义、解构绑定漏跟、`forward_slice` 同名误命中——清单与证据见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷；
 
 - Review 验证闭环：修改后重新 review，自动对比前后 finding；
 - refactor 提取函数：依赖 LLM 生成代码，需人工审核。

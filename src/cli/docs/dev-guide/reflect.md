@@ -115,29 +115,41 @@ LLM 因果解释：
 
 ## 输出格式
 
-```json
-{
-  "mode": "reflect",
-  "investigations": [
-    {
-      "finding_id": "wide-unsafe@data/pointer.rs:12",
-      "evidence_chain": {
-        "program_slice": {"length": 15, "lines": "..."},
-        "data_flow": {"path": ["parse_input", "to_raw_ptr", "buffer_write"]},
-        "dep_slice": {"callers": ["service/processor.rs", "api/handler.rs"], "scope": "3 模块"}
-      },
-      "llm_insight": "buffer 层的 safe 批量操作缺失，导致两个模块各自手写 unsafe",
-      "action": "扩展 buffer 层批量操作接口"
-    }
-  ]
-}
-```
+`--json` 时四个子命令各输出一个顶层数组（阶段二 graph 按 D10 契约重设计）：
+
+| 子命令 | 数组元素字段 | 实现状态 |
+|:--|:--|:--|
+| slice | `{file, line, text}` | 文本实现，阶段二换 AST |
+| trace | `{var, from, line}` | 同上 |
+| graph | `{line, name}` | 桩输出（调用数恒为 0），阶段二重设计 |
+| suggest | `{line, kind, text}` | 文本实现，保留 |
+
+证据链聚合格式（`investigations` + `llm_insight`）属设计愿景，尚未实现——reflect 当前不接 LLM，LLM 与切片的对照实验见 `examples/evidence.rs`。
 
 ## 命令行
 
 ```sh
-review . --reflect            # review + reflect（机械侦探，无 LLM）
-review . --reflect --llm      # review + reflect + LLM 因果解释
+qtcloud-code reflect slice <file> <line> [--json]       # 反向切片
+qtcloud-code reflect trace <file> <var> [line] [--json]  # 变量数据流
+qtcloud-code reflect graph <file> [--json]               # 函数级调用图
+qtcloud-code reflect suggest <file> [--json]             # 可疑行推荐
 ```
 
-无 LLM 时 reflect 仍可独立运行——输出结构化证据链，只是没有自然语言解释。
+reflect 是独立子命令组；`review --reflect` 一类的集成入口属设计愿景，尚未实现。当前 slice/trace/graph 仍是 `main.rs` 的文本启发式实现，阶段二接线到 `reflect::*`（见 ROADMAP 阶段二）。
+
+## 素材与真实案例
+
+被分析素材统一放 `assets/fixtures/`（目录规则见 [../../AGENTS.md](../../AGENTS.md) 的素材与示例目录）。现有三个案例自 qtcloud-work 逐字抽取：`as_material`（五级 `let` 链，供 slice/trace）、`search`（真实调用边，供 graph）、`read_criterion`（return 密集，供 suggest）。
+
+驱动素材优先、缺省回落内嵌，定位用 `env!("CARGO_MANIFEST_DIR")`；slice/trace 的目标行运行时自定位，不写死行号。真实案例是算法与规则的试金石——玩具样例只验证「能跑」，演示与验收以 `assets/fixtures/` 的输出为准（快照测试见 ROADMAP 阶段三）。
+
+## 已知缺陷与限制
+
+真实案例与 py 探针暴露，按发现顺序登记；处理阶段见 ROADMAP 与 TODO：
+
+- `graph` callee 语义（阶段二 D15 拆解）：方法链整段、闭包体、外部调用混杂入表，`assets/fixtures/search.rs` 输出可见；拆解为终末短名、剔除闭包体、复用 `audit::project_refs` 过滤、单行限长；
+- `suggest` 词表过时（阶段二校准）：cast 仅认 `as f64`/`as i32`（真实转换多为 usize/u64，qtcloud-work 全库漏报）、无 unwrap/expect，五类中四类零命中；return 类在验证器型函数误报偏高（`read_criterion` 单函数 10 条），按发现分级降权；
+- 多语言回归风险（阶段二接线门禁）：`reflect::*` 仅识别 Rust 节点（`function_item`/`let_declaration`），当前 CLI 为文本实现故 py 探针（slice/trace/graph）通过，直接接线将回归——须移植 `main.rs` 的多语言函数定位与声明识别；`refactor::rename` 同为仅 Rust 节点，py/go 静默空结果；
+- 声明表作用域语义不一致（下轮批量修复）：`slice::build_decls` 容器合并且外层优先（`or_insert`），`dataflow::collect_all_decls` 平铺后见优先（`insert`），同一影子绑定两模块结论相反；
+- 解构绑定漏跟（下轮批量修复）：`let (a, b)` 在 slice 取 pattern 首名、在 dataflow 取整段 pattern 文本（`"(a, b)"` 永不匹配标识符），`type_info` 同取首名——第二个名字失跟；
+- `forward_slice` 跨作用域同名误命中（下轮批量修复）：全树按名匹配把他函数同名标识符列为使用点，且无 example/测试覆盖，接线前先补用例。

@@ -154,9 +154,16 @@ review --mode deep
 
 ```text
 src/
-├── main.rs          # CLI 入口 (clap)
+├── main.rs          # CLI 入口 (clap)，reflect 子命令暂为文本实现（阶段二接线）
 ├── lib.rs           # 公开模块
 ├── config.rs        # .quanttide/code/contract.yaml 配置加载
+├── walk.rs          # walk_all 遍历（四份重复实现收敛于此）
+├── review.rs        # review 扫描管线（findings 收集，CLI 与 example 共用）
+├── llm.rs           # LLM 二次审查；get_api_key / call_llm 公开供 example
+├── audit.rs         # 对齐审计（代码↔测试↔文档）
+├── contract.rs      # 契约清单与校验
+├── scaffold.rs      # 骨架生成
+├── output.rs        # 输出格式：JSON / Terminal / STATUS.md
 ├── parser/          # 语言解析器
 │   ├── mod.rs       # LanguageParser trait + ParseResult
 │   ├── rust.rs      # RustParser
@@ -171,8 +178,16 @@ src/
 │   ├── unsafe_block.rs
 │   ├── unused_variable.rs
 │   └── missing_tests.rs
-├── output.rs        # 输出格式：JSON / Terminal / STATUS.md
+├── reflect/         # 定向分析
+│   ├── mod.rs       # SliceEntry / FlowEntry / Suggestion 类型与导出
+│   ├── slice.rs     # backward_slice / flatten_stmts
+│   ├── dataflow.rs  # trace_variable
+│   ├── analysis.rs  # forward_slice / build_call_graph / impact_analysis / code_search / type_info
+│   └── suggest.rs   # suggest（文本启发式，自 main.rs 迁入）
+└── refactor/        # 代码变换（rename）
 ```
+
+`examples/`（薄驱动）与 `assets/fixtures/`（真实案例素材）在 crate 根、`src/` 之外，目录规则见 [../../AGENTS.md](../../AGENTS.md)。
 
 ## 历史与降级工具
 
