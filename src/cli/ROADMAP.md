@@ -8,7 +8,7 @@
 
 三个阶段：
 
-1. 迁 reflect 入 `src`——新增模块并公开，`main.rs` 不动，既有子命令行为不变；
+1. 迁 reflect 入 `src`——新增模块并公开，`main.rs` 仅做行为保持的提取（已完成）；
 2. 重构 `main.rs`——三个 `run_reflect_*` 改用 `reflect::*`，`graph` 按新契约输出；
 3. 验收——以测试与 example 判定验收口径，example 保留为活文档。
 
@@ -24,7 +24,6 @@ reflect 四个子命令当前在 `main.rs` 里是行号/文本启发式实现，
 | `trace_variable` 数据流 | 文本匹配首个 `let`/`=` | 未做 RHS 上游串联、跨函数不工作 |
 | `build_call_graph` 调用图 | 固定输出「调用: 0, 被调用: 0」 | 桩实现 |
 | `suggest` 可疑行 | 文本匹配 return/panic 等 | 基本可用，保留 |
-| `forward_slice`、`flatten_stmts`、`type_info`、`impact_analysis`、`code_search` | 无 | 缺 |
 | `compute_confidence` 证据锚定率 | 无 | 缺 |
 
 `compute_confidence` 按行号/变量名引用计数分级，与生产 `src/llm.rs` 已有 `confidence` 字段（LLM 自评 confirm/dismiss）语义不同，归属层待 example 演示后决定。
@@ -33,23 +32,21 @@ reflect 四个子命令当前在 `main.rs` 里是行号/文本启发式实现，
 
 ## 阶段一 迁 reflect 入 src
 
-建立 `src/reflect/`，实现自实验室抽取；`walk_all` 合并实验室三处与 `refactor/rename.rs` 共四份，收敛为公开的公共模块，`refactor/rename.rs` 一并改用（D14）。`lib.rs` 增加 `pub mod reflect;`。此为新模块，不改 `main.rs`，既有 reflect 子命令行为不变。
-
-目标结构：
+阶段一已完成：`src/reflect/` 五个模块随 `pub mod reflect`、`pub mod walk`、`pub mod review` 落地；`walk_all` 四份收敛为 `walk` 模块，`refactor/rename.rs` 一并改用（D14）；`main.rs` 完成行为保持的提取——`suggest` 迁入 `reflect::suggest`，review 扫描管线迁入 `review` 模块，既有子命令行为不变（D12）；`src/llm.rs` 公开 `pub fn call_llm` 与取 key 函数，`review` 模块公开 findings 收集管线；七个 example 建成且 `cargo build --examples` 通过；实验室 `chain_exp`、`llm_exp`、`lab.rs` 原件已删（D13）。当前结构：
 
 ```text
 src/reflect/
-├── mod.rs        SliceEntry / FlowEntry 类型与子模块导出
+├── mod.rs        SliceEntry / FlowEntry / Suggestion 类型与子模块导出
 ├── slice.rs      backward_slice / flatten_stmts
 ├── dataflow.rs   trace_variable
-└── analysis.rs   forward_slice / build_call_graph / impact_analysis / code_search / type_info
+├── analysis.rs   forward_slice / build_call_graph / impact_analysis / code_search / type_info
+└── suggest.rs    suggest（自 main.rs 迁入的文本实现）
 ```
 
-`CallGraphNode`、`ImpactResult`、`TypeInfo` 随 `analysis.rs` 定义并 re-export（D14）。`cross_function_slice` 不迁并删除实验室对应代码；`chain_exp`、`llm_exp` 改写为 example 后原件一并删除，`lab.rs` 无引用则删（D13）。`compute_confidence` 暂不迁，先在 example 中内联演示，归属层留待语义统一后决定。
+`compute_confidence` 暂不迁，先在 example 中内联演示，归属层留待语义统一后决定。剩余两项：
 
-为 `analysis.rs` 补单元测试（D11）——可迁的实验室测试只有 slice 8 个、dataflow 4 个，覆盖率与四项新增能力的验收都落在单测上。`src/llm.rs` 暴露 `pub fn call_llm`、取 key 函数与 review runner（findings 收集），example 一步获得 findings 并做自由 prompt 调用（D12）。
-
-example 为薄驱动，直接调用 `qtcloud_code_cli::reflect::*`，覆盖 `slice`、`trace`、`graph`、`suggest` 四个子命令；`chain_exp` 与 `llm_exp` 改写为 example，改用生产 `src/llm.rs` 的环境变量配置，不引入 Vault，findings 经 lib 暴露的 review runner 产生，未配置 LLM 时跳过。
+- 为 `analysis.rs` 补单元测试（D11）——四项新增能力的验收与覆盖率都落在单测上；
+- 删除实验室 `cross_function_slice` 及其专用辅助函数。
 
 ## 阶段二 重构 main.rs
 
