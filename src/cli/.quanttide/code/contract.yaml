@@ -1,7 +1,0 @@
-code:
-  exclude:
-    - src/main.rs
-    - src/lib.rs
-    - src/parser/mod.rs
-    - src/detect/mod.rs
-    - src/detect/mod.rs
