@@ -86,4 +86,4 @@ cargo run -- audit .
 
 - Review 验证闭环：修改后重新 review，自动对比前后 finding；
 - refactor 提取函数：依赖 LLM 生成代码，需人工审核。
-- 证据主线二期：LLM 因果解释器进 lib（证据链 → prompt）、review/audit 输出适配 `Evidence` 信封与 findings → 定向取证接线；
+- 证据主线二期：LLM 因果解释器进 lib（证据链 → prompt）、review findings 与 audit 问题清单适配 `Evidence` 信封（语义 finding 归解释层，分拣随之进行）、问题 → 定向取证接线；

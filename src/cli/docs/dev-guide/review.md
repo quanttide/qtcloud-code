@@ -63,7 +63,7 @@ review 输出
 
 ## 与证据主线的关系
 
-规则引擎的 finding 是第一类**确定性证据**（位置/规则/级别/消息，可复现）；LLM 的 priority/explanation/confirm·dismiss 与语义 finding 属**解释层**——在证据之上判断，不反向充当证据。finding 的 `file` + `line` 是 reflect 定向取证的入口（findings → 取证接线登记下轮，见 [index.md](index.md) 证据主线）。
+规则引擎的 finding 是第一类**确定性证据**（位置/规则/级别/消息，可复现）；LLM 的 priority/explanation/confirm·dismiss 与语义 finding 属**解释层**——在证据之上判断，不反向充当证据。finding 的 `file` + `line` 是 reflect 定向取证的入口（findings → 取证接线登记下轮，见 [index.md](index.md) 证据主线）。audit 的问题清单与 findings 并列出问题——对齐轴出问题清单、质量轴出 findings，同属问题层、共用 `file` + `line` 取证入口。
 
 ## 输出格式
 

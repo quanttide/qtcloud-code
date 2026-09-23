@@ -31,7 +31,7 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
 
 落实设计（`src/evidence.rs`，阶段二）：`Evidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载），reflect 六个输出结构体经 `From` 转入；`EvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
 
-边界：证据主线不改变双约束核心，reflect 仍是独立工具——证据是跨工具的共同语言，不是流程强制环节。review/audit 输出适配信封与 findings → 定向取证接线登记下轮；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
+边界：证据主线不改变双约束核心，reflect 仍是独立工具——证据是跨工具的共同语言，不是流程强制环节。review findings 与 audit 问题清单适配信封、问题 → 定向取证接线登记下轮；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
 
 ## 交付约束体系（双约束核心）
 

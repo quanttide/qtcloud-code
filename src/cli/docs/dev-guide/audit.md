@@ -19,16 +19,18 @@ qtcloud-code audit --contract contract.yaml
 
 ## 在体系中的位置
 
-```
-audit → review（双约束核心）
-  │         │
-  │         └─ 定向取证入口：finding 的 file + line → reflect
-  └─ 最前：AI 交付先过对齐审计，不过不进 review
+```text
+问题层（并列双轴，门禁有先后）
+  audit（对齐轴：代码↔测试↔文档）     review（质量轴：规则引擎 + LLM）
+   └─ 问题清单                          └─ findings
+          └───────── file + line ─────────┘
+                      ▼ 定向取证接口
+证据层     reflect——只举证，不提问 → Evidence / EvidenceChain（阶段二）
 ```
 
-reflect/refactor 已降级或移除（见 [index.md](index.md) 历史与降级工具），不构成流水线环节。
+audit 与 review 并列出问题、维度不同（对齐 vs 质量），互不替代——audit 不是被拆进 review/reflect；`audit → review` 只是门禁次序。reflect/refactor 已降级或移除（见 [index.md](index.md) 历史与降级工具），不构成流水线环节。
 
-- **audit 与 review 分工**：audit 查**对齐**（代码↔测试↔文档的一致性，机器可判定）；review 查**质量**（代码可疑点，规则引擎 + LLM）
+- 分工：audit 查对齐（代码↔测试↔文档的一致性，机器可判定）；review 查质量（代码可疑点，规则引擎 + LLM）
 - 下层不能跳过：audit 不过不进 review
 
 ## 与证据主线的关系
