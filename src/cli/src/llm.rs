@@ -10,6 +10,8 @@
 //! - `QTTCODE_LLM_BASE_URL`（默认 https://api.openai.com/v1，OpenAI 兼容接口）
 //! - `QTTCODE_LLM_MODEL`（默认 gpt-4o-mini）
 //!
+//! 也暴露 [`get_api_key`] 与 [`call_llm`]，供 example 做自由 prompt 的单次调用。
+//!
 //! LLM 只对已有 finding 做增强（优先级/解释/确认），并补充规则引擎无法检测的语义 finding
 //! （安全漏洞、并发 bug 等）。规则引擎的 finding 信息永远保留。
 
@@ -69,18 +71,21 @@ pub fn run_llm_stage(mode: &str, findings: &[Finding]) -> Result<Vec<EnrichedFin
     match mode {
         "lint" => Ok(findings.iter().map(plain).collect()),
         "llm" | "deep" => {
-            let Some(api_key) = std::env::var("QTTCODE_LLM_API_KEY").ok().filter(|k| !k.is_empty()) else {
-                eprintln!(
-                    "警告: 未配置 QTTCODE_LLM_API_KEY，--mode {} 回退为 lint（仅规则引擎）",
-                    mode
-                );
-                return Ok(findings.iter().map(plain).collect());
+            let api_key = match get_api_key() {
+                Ok(k) => k,
+                Err(_) => {
+                    eprintln!(
+                        "警告: 未配置 QTTCODE_LLM_API_KEY，--mode {} 回退为 lint（仅规则引擎）",
+                        mode
+                    );
+                    return Ok(findings.iter().map(plain).collect());
+                }
             };
             if findings.is_empty() {
                 return Ok(Vec::new());
             }
             let prompt = build_prompt(findings);
-            let content = call_llm(&prompt, &api_key)?;
+            let content = call_llm(SYSTEM_PROMPT, &prompt, &api_key)?;
             let annotations = parse_llm_response(&content);
             Ok(merge(findings, &annotations))
         }
@@ -155,9 +160,17 @@ pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<Enriche
             });
             EnrichedFinding {
                 llm: matched.map(|a| LlmInfo {
-                    priority: if a.priority.is_empty() { "medium".into() } else { a.priority.clone() },
+                    priority: if a.priority.is_empty() {
+                        "medium".into()
+                    } else {
+                        a.priority.clone()
+                    },
                     explanation: a.explanation.clone(),
-                    confidence: if a.confidence.is_empty() { "confirm".into() } else { a.confidence.clone() },
+                    confidence: if a.confidence.is_empty() {
+                        "confirm".into()
+                    } else {
+                        a.confidence.clone()
+                    },
                 }),
                 ..plain
             }
@@ -166,24 +179,52 @@ pub fn merge(findings: &[Finding], annotations: &[LlmAnnotation]) -> Vec<Enriche
 
     for a in annotations.iter().filter(|a| a.semantic) {
         out.push(EnrichedFinding {
-            file: if a.file.is_empty() { "<unknown>".into() } else { a.file.clone() },
+            file: if a.file.is_empty() {
+                "<unknown>".into()
+            } else {
+                a.file.clone()
+            },
             line: a.line,
             column: 1,
-            severity: if a.severity.is_empty() { "SHOULD".into() } else { a.severity.clone() },
+            severity: if a.severity.is_empty() {
+                "SHOULD".into()
+            } else {
+                a.severity.clone()
+            },
             rule_id: "llm-semantic".into(),
-            message: if a.message.is_empty() { a.explanation.clone() } else { a.message.clone() },
+            message: if a.message.is_empty() {
+                a.explanation.clone()
+            } else {
+                a.message.clone()
+            },
             llm: Some(LlmInfo {
-                priority: if a.priority.is_empty() { "medium".into() } else { a.priority.clone() },
+                priority: if a.priority.is_empty() {
+                    "medium".into()
+                } else {
+                    a.priority.clone()
+                },
                 explanation: a.explanation.clone(),
-                confidence: if a.confidence.is_empty() { "confirm".into() } else { a.confidence.clone() },
+                confidence: if a.confidence.is_empty() {
+                    "confirm".into()
+                } else {
+                    a.confidence.clone()
+                },
             }),
         });
     }
     out
 }
 
-/// 调用 OpenAI 兼容的 chat/completions 接口
-fn call_llm(prompt: &str, api_key: &str) -> Result<String, String> {
+/// 读取 LLM API Key（环境变量 `QTTCODE_LLM_API_KEY`）
+pub fn get_api_key() -> Result<String, String> {
+    std::env::var("QTTCODE_LLM_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "未配置 QTTCODE_LLM_API_KEY 环境变量".to_string())
+}
+
+/// 调用 OpenAI 兼容的 chat/completions 接口：`system` 为系统提示，`prompt` 为用户输入
+pub fn call_llm(system: &str, prompt: &str, api_key: &str) -> Result<String, String> {
     let base = std::env::var("QTTCODE_LLM_BASE_URL")
         .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
     let model = std::env::var("QTTCODE_LLM_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
@@ -193,7 +234,7 @@ fn call_llm(prompt: &str, api_key: &str) -> Result<String, String> {
         "model": model,
         "temperature": 0,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
     });

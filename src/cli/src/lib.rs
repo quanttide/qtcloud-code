@@ -6,4 +6,7 @@ pub mod llm;
 pub mod output;
 pub mod parser;
 pub mod refactor;
+pub mod reflect;
+pub mod review;
 pub mod scaffold;
+pub mod walk;
