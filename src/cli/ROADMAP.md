@@ -1,6 +1,6 @@
 # ROADMAP qtcloud-code-cli
 
-工作清单见 [TODO](./TODO.md)，待拍板决策见 [DECISIONS](./DECISIONS.md)。
+工作清单见 [TODO](./TODO.md)。
 
 ## 意图
 
@@ -29,7 +29,7 @@ reflect 四个子命令当前在 `main.rs` 里是行号/文本启发式实现，
 
 ## 阶段一 迁 reflect 入 src
 
-建立 `src/reflect/`，实现自实验室抽取，合并重复的 `walk_all`；`lib.rs` 增加 `pub mod reflect;`（D1）。此为新模块，不改 `main.rs`，既有 reflect 子命令行为不变。
+建立 `src/reflect/`，实现自实验室抽取，合并重复的 `walk_all`；`lib.rs` 增加 `pub mod reflect;`。此为新模块，不改 `main.rs`，既有 reflect 子命令行为不变。
 
 目标结构：
 
@@ -41,19 +41,19 @@ src/reflect/
 └── analysis.rs   forward_slice / build_call_graph / impact_analysis / code_search / type_info
 ```
 
-`cross_function_slice` 不迁，并删除实验室对应代码（D2）。`compute_confidence` 暂不迁，先在 example 中内联演示，归属层留待语义统一后决定（D3）。
+`cross_function_slice` 不迁，并删除实验室对应代码。`compute_confidence` 暂不迁，先在 example 中内联演示，归属层留待语义统一后决定。
 
 example 为薄驱动，直接调用 `qtcloud_code_cli::reflect::*`，覆盖 `slice`、`trace`、`graph`、`suggest` 四个子命令；`chain_exp` 与 `llm_exp` 改写为 example，改用生产 `src/llm.rs` 的环境变量配置，不引入 Vault，未配置 LLM 时跳过。
 
 ## 阶段二 重构 main.rs
 
-`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变；`graph` 的 JSON 重新设计（D4），同步更新 `tests/reflect.rs`。`trace_variable` 本轮补齐跨函数追踪（D6）。`suggest` 保留文本实现。
+`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变；`graph` 的 JSON 重新设计，同步更新 `tests/reflect.rs`。`trace_variable` 本轮补齐跨函数追踪。`suggest` 保留文本实现。
 
 `graph` 由桩升级为真实调用图、`slice`/`trace` 由文本匹配升级为 AST 追溯，属新增功能而非回归。
 
 ## 阶段三 验收
 
-功能不变以 `tests/reflect.rs` 全绿为准，重构前行为对照依赖 git 历史中的既有实现（D5）；新增功能以真实调用图、跨函数追踪、`forward_slice`、`type_info`、`impact_analysis`、`code_search` 为准。
+功能不变以 `tests/reflect.rs` 全绿为准，重构前行为对照依赖 git 历史中的既有实现；新增功能以真实调用图、跨函数追踪、`forward_slice`、`type_info`、`impact_analysis`、`code_search` 为准。
 
 ```sh
 cargo build --examples
@@ -64,7 +64,7 @@ cargo run -- audit .
 
 ## 收尾
 
-同步 README、AGENTS.md、CHANGELOG 与 ROADMAP，登记本轮未完成项。`apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针（D7）。
+同步 README、AGENTS.md、CHANGELOG 与 ROADMAP，登记本轮未完成项。`apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针。
 
 ## 其他事项
 
