@@ -35,7 +35,7 @@ audit 与 review 并列出问题、维度不同（对齐 vs 质量），互不�
 
 ## 与证据主线的关系
 
-对齐差异是机判的**确定性证据**（第二证据源）——`{类型, API, 位置, 期望, 实际}` 可复核、零 LLM 判断；与 reflect 分析输出同属证据层，输出适配 `Evidence` 信封登记下轮（见 [index.md](index.md) 证据主线）。
+对齐差异是**问题层的 finding**——criterion 是期望与规则，evidence 是实际值与声明的原文及提取结果（机判、零 LLM 判断）；与 review 的 findings 同层，finding 携 criterion、待补 `evidence[]`，输出按四聚合适配登记下轮（见 [index.md](index.md) 证据主线）。
 
 ## 校验规则（三边）
 

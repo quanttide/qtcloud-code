@@ -24,7 +24,7 @@
 - example 只用公开能力——`lib` 暴露 `call_llm`、取 key 函数与 review runner，不在 example 内联 HTTP 与扫描逻辑（D12）；
 - 已知缺陷不进验收——`build_call_graph` 过滤第三方库调用并入本轮，依赖 LLM 闭环的事项登记下轮 backlog（D15）；
 - 名实相符——证据发现与计数机制命名为 `count_evidence`，不叫 confidence，与 LLM 自评 `confidence` 字段两不相涉；
-- 证据主线——确定性输出即证据：audit 差异、规则 findings、reflect 分析同一信封（`src/evidence.rs`，阶段二落地），LLM 只解释不生产证据；
+- 证据主线——证据是未判定的素材、发现是挂证据的判定，家族词汇以 `quanttide-audit-toolkit` 四聚合为准：reflect 素材入信封（`src/evidence.rs`，阶段二），review/audit 命中是 finding 待补证据，LLM 只解释不生产证据；
 - 未定则先搁置——证据计数器（原 `compute_confidence`）先放进 example 演示，归属层已拍板为 `evidence` 模块、阶段二落地（见证据主线）；
 - 遵循既有规则——按仓库「提交即推送」执行，并同步父仓库指针；
 - 先文档后代码，逐项拍板，决策留痕。

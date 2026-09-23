@@ -6,7 +6,7 @@
 
 **定位**：~~交付约束体系的修复链路~~（2026-08 已降级）——**独立定向分析工具**，不入交付约束体系（交付约束核心是 audit + review）。但在证据主线下，reflect 是**定向取证层**：给定 review finding 的位置或任意方向，产出可复核、可复现的分析证据，供人直接读、供 LLM 在其上解释（解释不回流为证据）。
 
-给定 review 的证据（finding），不是停留「这里有问题」，而是反复追问「为什么」，直到拿到源头的语句与值路径。
+给定 review 的线索（finding 候选），不是停留「这里有问题」，而是反复追问「为什么」，直到拿到源头的语句与值路径——**为 finding 补齐 `evidence[]`**，框架里补齐证据的发现才算合格发现。`suggest` 是唯一带弱判定的输出，身份是线索（indication），不入证据层。
 
 ## 证据模型（目标设计）
 
@@ -25,7 +25,8 @@
 
 - `Evidence` 统一信封：`kind` + `file` + `line` + `text` + 按 kind 的结构化负载（enum payload），六个结构体经 `From` 转入；
 - `EvidenceChain`：有序证据集 + 来源与目标（文件、目标行/变量）——`examples/evidence.rs` 里 `chain_text` 的 lib 化；
-- `count_evidence` / `anchor_level` 随迁入同模块——评证与证据同居，归属层就此落定。
+- `count_evidence` / `anchor_level` 随迁入同模块——评证与证据同居，归属层就此落定；
+- 对齐家族四聚合：`Evidence` 即 `AuditEvidence` 的结构化形式（补 `kind`/`file`/`line`），家族唯一词汇以 `quanttide-audit-toolkit` 为准。
 
 ## 证据流水线（取 → 排 → 用 → 评）
 

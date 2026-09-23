@@ -16,7 +16,7 @@
 
 ## 证据主线（设计方向）
 
-**确定性输出即证据**：`audit` 的对齐差异、`review` 的规则 findings、`reflect` 的定向分析同属证据层，LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`Evidence`/`EvidenceChain` 统一信封，`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；LLM 因果解释器与 review/audit 输出适配登记下轮。设计全文见 [docs/dev-guide/index.md](docs/dev-guide/index.md) 证据主线与 [docs/dev-guide/reflect.md](docs/dev-guide/reflect.md) 证据模型。
+**证据与发现分层**（对齐 `quanttide-audit-toolkit` 四聚合）：证据是未判定的素材（reflect 的切片/数据流/调用图与命中行材料），发现是挂了证据的判定（review 规则命中、audit 对齐差异——携 criterion、待补 `evidence[]`）；LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`Evidence`/`EvidenceChain` 统一信封，即 `AuditEvidence` 的结构化形式；`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；问题层按四聚合适配与 LLM 因果解释器登记下轮。设计全文见 [docs/dev-guide/index.md](docs/dev-guide/index.md) 证据主线与 [docs/dev-guide/reflect.md](docs/dev-guide/reflect.md) 证据模型。
 
 ## 现状与差距
 
@@ -86,4 +86,4 @@ cargo run -- audit .
 
 - Review 验证闭环：修改后重新 review，自动对比前后 finding；
 - refactor 提取函数：依赖 LLM 生成代码，需人工审核。
-- 证据主线二期：LLM 因果解释器进 lib（证据链 → prompt）、review findings 与 audit 问题清单适配 `Evidence` 信封（语义 finding 归解释层，分拣随之进行）、问题 → 定向取证接线；
+- 证据主线二期：review findings 与 audit 问题清单按 `quanttide-audit-toolkit` 四聚合适配（criterion ← 规则/期望、evidence ← 确定性材料、severity 轴 RFC→ISO 拍板，语义 finding 归解释层），findings → 定向取证接线、LLM 因果解释器进 lib（证据链 → prompt）；

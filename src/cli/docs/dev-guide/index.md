@@ -12,13 +12,14 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
 
 ## 证据主线（设计总纲）
 
-**确定性输出即证据**：工具链中一切可复核、可复现的确定性产出都是证据；LLM 只在证据之上解释，从不生产证据。三类证据源共用一套证据语言：
+**证据与发现分层**（对齐家族 `quanttide-audit-toolkit` 四聚合）：证据是**未判定的素材**——独立收集、等待被标准检验；发现是**挂了证据的判定**——由证据匹配标准产生。LLM 只在证据之上解释，从不生产证据。四聚合是家族唯一词汇：
 
-| 证据源 | 产出 | 生产者 |
+| 框架聚合 | 对应我们的成员 | 说明 |
 |:--|:--|:--|
-| 对齐差异 | 问题清单（类型/API/位置/期望/实际） | `audit` |
-| 规则 findings | 位置/规则/级别/消息 | `review` 规则引擎 |
-| 定向分析 | 切片、数据流、调用图、可疑行 | `reflect` |
+| `AuditCriteria` 标准 | 规则表（`all_rule_ids`/contract）、audit 的期望 | 尺子，独立于素材与判定 |
+| `AuditEvidence` 证据 | reflect 的切片/数据流/调用图/类型信息、命中行原文与度量 | 描述性素材，无判定 |
+| `AuditFinding` 发现 | review 规则命中、audit 对齐差异 | 问题层——携 criterion、待补 `evidence[]` |
+| `AuditReport` 报告 | 问题清单与 findings 的聚合导出 | 边界导出，登记下轮 |
 
 流水线（取 → 排 → 用 → 评）：
 
@@ -29,9 +30,9 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
 评证据  count_evidence → anchored / partial / unanchored               阶段二迁入 evidence 模块
 ```
 
-落实设计（`src/evidence.rs`，阶段二）：`Evidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载），reflect 六个输出结构体经 `From` 转入；`EvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
+落实设计（`src/evidence.rs`，阶段二）：`Evidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载）——即 `AuditEvidence` 的结构化形式（框架尚无结构化 location，映射时由信封补齐），reflect 六个输出结构体经 `From` 转入；`EvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
 
-边界：证据主线不改变双约束核心，reflect 仍是独立工具——证据是跨工具的共同语言，不是流程强制环节。review findings 与 audit 问题清单适配信封、问题 → 定向取证接线登记下轮；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
+边界：证据主线不改变双约束核心，reflect 仍是独立工具——**为问题层的 finding 候选补齐 `evidence[]`** 是它的取证职责，补齐才算合格发现。review/audit 输出按四聚合适配（finding 携 criterion 与 evidence[]，severity 轴 RFC→ISO 在适配时拍板）、findings → 定向取证接线登记下轮；`suggest` 输出是线索（indication），弱判定、不入证据层；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
 
 ## 交付约束体系（双约束核心）
 
@@ -79,7 +80,7 @@ audit 红态问题清单即下一步任务：`测试引用不存在` → `scaffo
 - **机器可判定优先**：对齐校验不依赖 LLM 判断；质量校验规则引擎兜底
 - **反馈可消费**：问题清单结构化——AI 直接按清单修正
 - **只读安全**：audit/review 不修改任何文件
-- **证据先于解释**：确定性输出即证据，LLM 只在证据之上解释，语义 finding 属解释层不冒充证据；
+- **素材先于判定**：证据是未判定的素材，finding 挂上 evidence 才合格，LLM 只在证据之上解释，语义 finding 属解释层不冒充证据；
 - **评证名实相符**：证据计数（`count_evidence`）与 LLM 自评（`confidence`）分名而治，不互相冒充；
 
 ## 人机协作模型
