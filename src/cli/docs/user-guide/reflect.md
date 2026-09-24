@@ -82,8 +82,8 @@ reflect graph <file>
 reflect suggest <file>
 ```
 
-扫描文件，标记返回点、unsafe、类型转换、parse 调用等高风险行号。  
-不做分析，只告诉你"这些行值得看"。
+扫描文件，标记返回点、unsafe、类型转换、parse、unwrap/expect 等高风险行号，输出按风险分级排序（return 类降权殿后）。  
+不做分析，只告诉你“这些行值得看”。
 
 **适用场景：** 你不知道从哪开始分析一个文件。suggest 给你起点，然后你用 slice 继续追溯。
 

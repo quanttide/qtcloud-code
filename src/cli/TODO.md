@@ -5,7 +5,6 @@
 ## 阶段二 重构 main.rs
 
 - [ ] 多语言节点识别：slice/trace/graph 接线时移植 `main.rs` 的多语言函数定位与声明识别（lab 仅 Rust，py 探针见 dev-guide/reflect.md）
-- [ ] `suggest` 词表按真实案例校准：cast 放宽到任意 `as` 类型、增补 unwrap/expect、return 类按分级降权
 - [ ] 以 git 历史中的既有实现为对照基准，不额外留存快照
 - [ ] `run_reflect_slice` 改调 `reflect::backward_slice`，参数、退出码与 JSON 结构保持
 - [ ] `run_reflect_trace` 改调 `reflect::trace_variable`，补齐跨函数追踪，输出按新增功能验收（D8）
