@@ -521,3 +521,71 @@ function processOrder(input: string): string {
         code
     );
 }
+
+// ============ 真实案例快照（阶段三，防回退） ============
+
+#[test]
+fn test_graph_snapshot_search_fixture() {
+    // 真实案例锁定（D10）：search.rs 的 graph 输出——行号、调用边与排序全部定格
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/fixtures/search.rs");
+    let output = cli()
+        .arg("reflect")
+        .arg("graph")
+        .arg(fixture.to_str().unwrap())
+        .arg("--json")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "graph failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let nodes = parsed["nodes"].as_array().expect("nodes 数组");
+    assert_eq!(nodes.len(), 2, "search.rs 恰有两个函数，got: {:?}", nodes);
+
+    let matches = nodes
+        .iter()
+        .find(|n| n["text"] == "matches")
+        .expect("matches 节点");
+    assert_eq!(matches["kind"], "graph");
+    assert_eq!(matches["line"], 13);
+    assert_eq!(
+        matches["file"].as_str().unwrap(),
+        fixture.to_str().unwrap(),
+        "信封 file 由接线方补齐"
+    );
+    assert_eq!(
+        matches["callees"],
+        serde_json::json!(["hits", "to_lowercase", "trim_end_matches"]),
+        "matches 调用边（终末短名、同源过滤、去重升序）"
+    );
+    assert_eq!(matches["callers"], serde_json::json!(["search"]));
+
+    let search = nodes
+        .iter()
+        .find(|n| n["text"] == "search")
+        .expect("search 节点");
+    assert_eq!(search["line"], 37);
+    assert_eq!(search["callers"], serde_json::json!([]));
+    assert_eq!(
+        search["callees"],
+        serde_json::json!([
+            "build",
+            "file_name",
+            "flatten",
+            "is_dir",
+            "lines",
+            "matches",
+            "read_dir",
+            "read_to_string",
+            "short",
+            "starts_with",
+            "to_string_lossy",
+            "trim_end",
+            "unwrap_or_default"
+        ]),
+        "search 调用边快照"
+    );
+}

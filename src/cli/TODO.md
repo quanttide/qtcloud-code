@@ -2,20 +2,9 @@
 
 步骤说明见 [ROADMAP](./ROADMAP.md)，决策结论见 [AGENTS](./AGENTS.md)。
 
-## 阶段二 重构 main.rs
 
 
-## 阶段三 验收
 
-- [ ] `cargo test` 全绿
-- [ ] `cargo build --examples` 通过
-- [ ] CLI 契约验收：`slice` / `trace` / `suggest` 参数、退出码与 JSON 结构同既有实现，`suggest` 输出一致（D8）
-- [ ] `graph` 按新 JSON 契约验收（D10）
-- [ ] 真实案例快照测试：`graph` 输出在 `assets/fixtures/search.rs` 上锁定，防回退
-- [ ] `evidence` example 实跑经 lib 评证，计数分级不变（anchored/partial/unanchored）
-- [ ] 新增能力以单测验收：跨函数 `trace`、`forward_slice`、`type_info`、`impact_analysis`、`code_search`（D11）
-- [ ] `cargo run -- review .` 与 `cargo run -- audit .` 自举不退化
-- [ ] `cargo llvm-cov` 覆盖率不低于现基准（AGENTS.md 记 92%）
 
 ## 收尾
 
