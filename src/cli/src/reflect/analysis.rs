@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use crate::audit::{TestRef, project_refs};
 use crate::reflect::SliceEntry;
 use crate::walk::walk_all;
 
@@ -99,27 +100,10 @@ pub fn build_call_graph(source: &str, tree: &tree_sitter::Tree) -> HashMap<Strin
                         n.start_position().row + 1,
                         source,
                     );
-                    if let Some(callee) = n
-                        .child_by_field_name("function")
-                        .or_else(|| {
-                            let mut cc = n.walk();
-                            if cc.goto_first_child() {
-                                loop {
-                                    let ch = cc.node();
-                                    if ch.is_named() && ch.kind() == "identifier" {
-                                        return Some(ch);
-                                    }
-                                    if !cc.goto_next_sibling() {
-                                        break;
-                                    }
-                                }
-                            }
-                            None
-                        })
-                        .and_then(|c| c.utf8_text(source.as_bytes()).ok())
+                    if let Some(callee) = extract_callee(&n, source)
                         && let Some(caller) = caller
                     {
-                        nodes.entry(caller).or_default().push(callee.to_string());
+                        nodes.entry(caller).or_default().push(callee);
                     }
                 }
                 _ => {}
@@ -127,13 +111,31 @@ pub fn build_call_graph(source: &str, tree: &tree_sitter::Tree) -> HashMap<Strin
         }
     });
 
+    // D15 拆解：项目内调用过滤（复用 audit::project_refs，与 audit 边 2 同源）+
+    // 去重升序（确定性输出）；外部/标准库按同源策略丢弃
+    for callees in nodes.values_mut() {
+        let refs: Vec<TestRef> = callees
+            .iter()
+            .map(|c| TestRef {
+                name: c.clone(),
+                arg_count: 0,
+                location: String::new(),
+            })
+            .collect();
+        let kept: HashSet<String> = project_refs(&refs).into_iter().map(|r| r.name).collect();
+        callees.retain(|c| kept.contains(c.as_str()));
+        callees.sort();
+        callees.dedup();
+    }
+
     let mut graph = HashMap::new();
     for (name, callees) in &nodes {
-        let callers: Vec<String> = nodes
+        let mut callers: Vec<String> = nodes
             .iter()
             .filter(|(_, callee_list)| callee_list.contains(name))
             .map(|(caller, _)| caller.clone())
             .collect();
+        callers.sort();
         graph.insert(
             name.clone(),
             CallGraphNode {
@@ -145,6 +147,58 @@ pub fn build_call_graph(source: &str, tree: &tree_sitter::Tree) -> HashMap<Strin
         );
     }
     graph
+}
+
+/// D15 拆解：callee 提取——剔除闭包体，取终末方法短名并限长
+fn extract_callee(call: &tree_sitter::Node, source: &str) -> Option<String> {
+    let func = call.child_by_field_name("function").or_else(|| {
+        let mut cc = call.walk();
+        if cc.goto_first_child() {
+            loop {
+                let ch = cc.node();
+                if ch.is_named() && ch.kind() == "identifier" {
+                    return Some(ch);
+                }
+                if !cc.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+        None
+    })?;
+    let text = func.utf8_text(source.as_bytes()).ok()?.trim().to_string();
+    if text.is_empty() {
+        return None;
+    }
+    // 剔除闭包体：函数位出现闭包语法（Rust `|x|`、Python `lambda`、Go `func(`）
+    if text.contains('|') || text.contains("lambda") || text.starts_with("func(") {
+        return None;
+    }
+    Some(cap_callee(terminal_name(&text)))
+}
+
+/// 终末短名：`a.b.c()` → `c`、`Foo::new()` → `new`，剥离方法链与命名空间与 turbofish
+fn terminal_name(text: &str) -> String {
+    let seg = text.rsplit("::").next().unwrap_or(text);
+    let seg = seg.rsplit('.').next().unwrap_or(seg);
+    let seg = seg.split("::<").next().unwrap_or(seg).trim();
+    if seg.is_empty() {
+        text.to_string()
+    } else {
+        seg.to_string()
+    }
+}
+
+/// D15 拆解：callee 单行限长，防长链撑爆输出与 JSON 契约
+fn cap_callee(name: String) -> String {
+    const MAX: usize = 80;
+    if name.chars().count() > MAX {
+        let mut capped: String = name.chars().take(MAX).collect();
+        capped.push('…');
+        capped
+    } else {
+        name
+    }
 }
 
 fn find_containing_function_name_safe(
@@ -371,5 +425,39 @@ mod tests {
         assert!(info[0].type_annotation.is_none(), "base 无注解");
         assert_eq!(info[1].var, "total");
         assert_eq!(info[1].type_annotation.as_deref(), Some("i32"));
+    }
+
+    #[test]
+    fn test_call_graph_callee_normalization_and_filter() {
+        let code = "struct S;\nimpl S {\n    fn run(&self) {\n        self.helper();\n        let v = Vec::new();\n        v.len();\n    }\n    fn helper(&self) {}\n}\nfn check(s: &S) {\n    s.run();\n}";
+        let tree = parse(code);
+        let g = build_call_graph(code, &tree);
+        let run = g.get("run").expect("run 节点");
+        assert_eq!(
+            run.callees,
+            vec!["helper"],
+            "self.helper → 终末短名 helper；Vec::new / v.len 被同源策略过滤"
+        );
+        let check = g.get("check").expect("check 节点");
+        assert_eq!(check.callees, vec!["run"], "s.run → run");
+        assert!(g.get("helper").unwrap().callees.is_empty());
+    }
+
+    #[test]
+    fn test_call_graph_skips_closure_body() {
+        let code = "fn run() {\n    let r = (|| 42)();\n}";
+        let tree = parse(code);
+        let g = build_call_graph(code, &tree);
+        let run = g.get("run").expect("run 节点");
+        assert!(
+            run.callees.iter().all(|c| !c.contains("||")),
+            "闭包体不作调用名：{:?}",
+            run.callees
+        );
+        assert!(
+            run.callees.is_empty(),
+            "闭包调用剔除后无项目内调用：{:?}",
+            run.callees
+        );
     }
 }

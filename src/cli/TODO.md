@@ -4,10 +4,6 @@
 
 ## 阶段二 重构 main.rs
 
-- [ ] `build_call_graph` callee 归一化：取终末方法短名、剔除闭包体（D15 拆解）
-- [ ] 项目内调用过滤复用 `audit::project_refs`，外部/标准库调用按策略处理（D15 拆解）
-- [ ] callee 输出单行限长，防长链撑爆输出与 JSON 契约（D15 拆解）
-- [ ] 起草 `graph` JSON 契约：证据信封形态（kind/line/text + 函数节点与调用边），语义定型后落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）
 - [ ] 多语言节点识别：slice/trace/graph 接线时移植 `main.rs` 的多语言函数定位与声明识别（lab 仅 Rust，py 探针见 dev-guide/reflect.md）
 - [ ] `suggest` 词表按真实案例校准：cast 放宽到任意 `as` 类型、增补 unwrap/expect、return 类按分级降权
 - [ ] 以 git 历史中的既有实现为对照基准，不额外留存快照

@@ -51,6 +51,29 @@ reflect graph <file>
 
 **适用场景：** 快速理解代码结构。
 
+**JSON 契约（D10，证据信封形态）**：`--json` 输出为对象，`nodes` 每项是一条 `kind:"graph"` 证据信封：
+
+| 字段 | 类型 | 说明 |
+|:--|:--|:--|
+| `kind` | string | 恒为 `graph` |
+| `file` | string | 分析文件 |
+| `line` | number | 函数定义行（1 起） |
+| `text` | string | 函数名 |
+| `callees` | string[] | 被调用，终末短名去重升序，单条 ≤ 80 字符 |
+| `callers` | string[] | 调用方，同文件函数名去重升序 |
+
+```json
+{
+  "file": "src/search.rs",
+  "nodes": [
+    {"kind": "graph", "file": "src/search.rs", "line": 37, "text": "search",
+     "callees": ["matches"], "callers": []}
+  ]
+}
+```
+
+语义（D15 拆解定型）：callee 取终末方法短名（`a.b.c()` → `c`、`Foo::new()` → `new`），闭包体不作调用名；外部/标准库调用按 `audit::project_refs` 同源策略（`EXTERNAL_CALLS` 单一事实源）过滤；单条限长 80 字符，防长链与多行文本撑爆契约。
+
 ---
 
 ### suggest — 推荐可疑行
