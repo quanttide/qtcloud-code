@@ -20,7 +20,7 @@
 | `test_slice_basic` | 简单函数，Rust，L14 `Ok(result)` | 输出追溯链，包含 `let price = price_int as f64` 等 |
 | `test_slice_empty_result` | 行号在函数体外 | 退出码 1，stderr 提示"未找到追溯结果" |
 | `test_slice_nonexistent_file` | 不存在的文件 | 退出码 2，stderr 错误 |
-| `test_slice_json` | 同上 basic，`--json` | stdout 是合法 JSON 数组 |
+| `test_slice_json` | 同上 basic，`--json` | JSON 数组 `[{line,text}]`（无 file），内容含上游 `let`（AST 追溯） |
 
 ### 3. trace（4 个）
 
@@ -29,15 +29,15 @@
 | `test_trace_basic` | 指定 line + var | 输出变量定义链 |
 | `test_trace_without_line` | 只传 var，不传 line | 自动查找声明位置，输出相同结果 |
 | `test_trace_nonexistent_var` | 不存在的变量 | 退出码 1，stderr 提示 |
-| `test_trace_json` | `--json` | stdout 是合法 JSON 数组 |
+| `test_trace_json` | `--json` | JSON 数组 `[{line,var,from}]`，多步（≥2） |
 
 ### 4. graph（3 个）
 
 | 测试 | 输入 | 预期输出 |
-|------|------|---------|
-| `test_graph_basic` | 包含多个函数的 Rust 文件 | 列出函数名和调用数 |
-| `test_graph_empty` | 仅一个函数或无函数 | 退出码 1 或 0 |
-| `test_graph_json` | `--json` | stdout 是合法 JSON 对象 |
+|:--|:--|:--|
+| `test_graph_basic` | 包含多个函数的 Rust 文件 | 列出函数名与真实调用边 |
+| `test_graph_empty` | 仅注释、无函数 | 退出码 1 |
+| `test_graph_json` | `--json` | 契约对象 `{file, nodes[]}`，节点为 `kind:"graph"` 信封 |
 
 ### 5. suggest（3 个）
 
@@ -54,6 +54,12 @@
 | `test_slice_python` | Python 文件 slice 可工作 |
 | `test_trace_go` | Go 文件 trace 可工作 |
 | `test_graph_typescript` | TypeScript 文件 graph 可工作 |
+
+### 7. 真实案例快照（1 个）
+
+| 测试 | 输入 | 预期输出 |
+|:--|:--|:--|
+| `test_graph_snapshot_search_fixture` | `assets/fixtures/search.rs`（真实案例） | `--json` 契约对象逐字段锁定：行号、调用边、排序（防回退） |
 
 ## Fixture 设计
 
@@ -129,7 +135,7 @@ function processOrder(input: string): string {
 ```
 tests/
 ├── review.rs    (已有，不改动)
-└── reflect.rs   (新增，~30 个测试)
+└── reflect.rs   (20 个测试)
 ```
 
 ## Cargo.toml 变更
@@ -144,8 +150,8 @@ path = "tests/reflect.rs"
 
 现有 dev-dependencies 已有 `tempfile = "3"`，无需新增。
 
-## 计划中的变更（阶段二/三）
+## 已落实的变更
 
-- 阶段二 D9：四个子命令断言按新实现全部重写，对照退回 git 历史人工比对；
-- 阶段二 D10：`--json` 断言按 `CodeEvidence` 证据信封形态更新（契约起草后同步本文档）；
-- 阶段三：新增真实案例快照测试——`graph` 输出在 `assets/fixtures/search.rs` 上锁定防回退（见 ROADMAP）。
+- D9：四个子命令断言已按新实现重写，对照退回 git 历史人工比对，不留额外快照；
+- D10：`--json` 断言已按证据信封契约更新（graph 对象契约定稿见 [user-guide/reflect.md](../user-guide/reflect.md)）；
+- 阶段三：真实案例快照测试已落地（`test_graph_snapshot_search_fixture`）。

@@ -25,12 +25,12 @@ qtcloud-code CLI 是 **AI 编码交付的约束器**——用其他 AI（pi/dsh/
 
 ```text
 取证据  reflect::{backward_slice, trace_variable, build_call_graph, suggest}   已实现
-排证据  CodeEvidenceChain：同一组证据的有序组织（正向/反向）             阶段二：src/evidence.rs
+排证据  CodeEvidenceChain：同一组证据的有序组织（正向/反向）             已落地 src/evidence.rs
 用证据  LLM 因果解释：证据链 → prompt → 结论                          example 已通，lib 解释器下轮
-评证据  count_evidence → anchored / partial / unanchored               阶段二迁入 evidence 模块
+评证据  count_evidence → anchored / partial / unanchored               已迁入 evidence 模块
 ```
 
-落实设计（`src/evidence.rs`，阶段二）：`CodeEvidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载）——即 `AuditEvidence` 的结构化形式（框架尚无结构化 location，映射时由信封补齐），reflect 六个输出结构体经 `From` 转入；`CodeEvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
+落实（`src/evidence.rs`，已落地）：`CodeEvidence` 统一信封（`kind`/`file`/`line`/`text` + 按 kind 的结构化负载）——即 `AuditEvidence` 的结构化形式（框架尚无结构化 location，映射时由信封补齐），reflect 六个输出结构体经 `From` 转入；`CodeEvidenceChain` 为有序证据集 + 来源与目标，graph 的 JSON 契约（D10）取此信封形态；`count_evidence`、`anchor_level` 随迁，归属层就此落定。
 
 边界：证据主线不改变双约束核心，reflect 仍是独立工具——**为问题层的 finding 候选补齐 `evidence[]`** 是它的取证职责，补齐才算合格发现。review/audit 输出按四聚合适配（finding 携 criterion 与 evidence[]，severity 轴 RFC→ISO 在适配时拍板）、findings → 定向取证接线登记下轮；`suggest` 输出是线索（indication），弱判定、不入证据层；LLM 语义 finding 属解释层，标记但不入证据层。设计细节见 [reflect.md](reflect.md) 的证据模型与证据流水线。
 
@@ -180,7 +180,7 @@ review --mode deep
 
 ```text
 src/
-├── main.rs          # CLI 入口 (clap)，reflect 子命令暂为文本实现（阶段二接线）
+├── main.rs          # CLI 入口 (clap)，reflect 子命令已接线 reflect::*（Rust AST + 多语言定位）
 ├── lib.rs           # 公开模块
 ├── config.rs        # .quanttide/code/contract.yaml 配置加载
 ├── walk.rs          # walk_all 遍历（四份重复实现收敛于此）
@@ -190,6 +190,7 @@ src/
 ├── contract.rs      # 契约清单与校验
 ├── scaffold.rs      # 骨架生成
 ├── output.rs        # 输出格式：JSON / Terminal / STATUS.md
+├── evidence.rs      # 证据信封 CodeEvidence/CodeEvidenceChain 与评证（证据主线落点）
 ├── parser/          # 语言解析器
 │   ├── mod.rs       # LanguageParser trait + ParseResult
 │   ├── rust.rs      # RustParser
@@ -206,14 +207,15 @@ src/
 │   └── missing_tests.rs
 ├── reflect/         # 定向分析
 │   ├── mod.rs       # SliceEntry / FlowEntry / CodeSuggestion 类型与导出
+│   ├── lang.rs      # 多语言定位（函数作用域/声明行/行级函数清单）
 │   ├── slice.rs     # backward_slice / flatten_stmts
-│   ├── dataflow.rs  # trace_variable
+│   ├── dataflow.rs  # trace_variable（含跨函数追踪）
 │   ├── analysis.rs  # forward_slice / build_call_graph / impact_analysis / code_search / type_info
 │   └── suggest.rs   # suggest（文本启发式，自 main.rs 迁入）
 └── refactor/        # 代码变换（rename）
 ```
 
-`examples/`（薄驱动）与 `assets/fixtures/`（真实案例素材）在 crate 根、`src/` 之外，目录规则见 [../../AGENTS.md](../../AGENTS.md)。阶段二将新增 `src/evidence.rs`（证据信封与评证，见证据主线）。
+`examples/`（薄驱动）与 `assets/fixtures/`（真实案例素材）在 crate 根、`src/` 之外，目录规则见 [../../AGENTS.md](../../AGENTS.md)。`src/evidence.rs`（证据信封与评证）已落地，见证据主线。
 
 ## 历史与降级工具
 

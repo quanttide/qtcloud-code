@@ -125,16 +125,16 @@ qtcloud-code refactor rename <file> --old-name foo --new-name bar --dry-run
 ### 定向分析（reflect）
 
 ```sh
-# 反向追溯：某行结果依赖了哪些变量
+# 反向追溯：某行结果依赖了哪些变量（Rust 走 AST 依赖追溯，目标行含尾表达式）
 qtcloud-code reflect slice <file> <line>
 
-# 变量数据流：声明 → 使用
+# 变量数据流：声明 → 使用（Rust 走 AST，含跨函数追踪——经调用追入返回表达式）
 qtcloud-code reflect trace <file> <var> [line]
 
-# 函数级调用图
+# 函数级调用图（终末短名、项目内调用边、确定性排序；--json 为契约对象 {file, nodes[]}）
 qtcloud-code reflect graph <file>
 
-# 推荐可疑行（return / panic / unsafe / cast / parse）
+# 推荐可疑行（return / panic / unsafe / cast / parse / unwrap，按风险分级排序）
 qtcloud-code reflect suggest <file>
 
 # 所有子命令支持 --json 输出

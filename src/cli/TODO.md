@@ -2,14 +2,6 @@
 
 步骤说明见 [ROADMAP](./ROADMAP.md)，决策结论见 [AGENTS](./AGENTS.md)。
 
+本轮全部完成：阶段一至收尾——reflect 接线（slice/trace/graph AST + `reflect::lang` 多语言定位）、证据主线落地（`src/evidence.rs`）、D10 graph 契约与 search.rs 快照、D15 拆解与 ListRules 废弃、D8/D9/D11 验收（254 单测全绿、线覆盖 92.72%）。
 
-
-
-
-## 收尾
-
-- [ ] README 补充新增 reflect 能力
-- [ ] 同步 `docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md`，`dev-guide/reflect.md` 视变更幅度（D16）
-- [ ] CHANGELOG 增加条目
-- [ ] ROADMAP 登记本轮未完成项
-- [ ] `apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针
+下轮事项登记在 [ROADMAP](./ROADMAP.md) 下轮 backlog。

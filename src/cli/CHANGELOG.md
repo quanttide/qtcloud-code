@@ -4,7 +4,14 @@
 
 - **破坏性**：LLM API Key 环境变量 `QTTCODE_LLM_API_KEY` 更名为 `LLM_API_KEY`（`QTTCODE_LLM_BASE_URL`、`QTTCODE_LLM_MODEL` 不变）
 - **破坏性（lib API 改名，域命名对齐家族惯例）**：`Finding→CodeFinding`、`EnrichedFinding→CodeEnrichedFinding`、`Severity→CodeSeverity`、`Suggestion→CodeSuggestion`、`TypeInfo→CodeTypeInfo`、`SymbolTable/Symbol/SymbolKind→CodeSymbol*`、`RefLocation→CodeRefLocation`；`AuditIssue→AlignIssue`、`AuditResult→AlignResult`（`Audit*` 前缀让还审计域）
-- 规划定名：证据信封 `CodeEvidence` / `CodeEvidenceChain`（随 `src/evidence.rs` 阶段二落地）
+- 规划定名：证据信封 `CodeEvidence` / `CodeEvidenceChain`（已随 `src/evidence.rs` 落地）
+- **破坏性**：`reflect graph --json` 输出由扁平数组改为契约对象 `{file, nodes[]}`（节点为 `kind:"graph"` 证据信封，含调用边——D10，定稿见 docs/user-guide/reflect.md）
+- `reflect slice`/`trace` 的 Rust 路径升级 AST 依赖追溯/数据流（trace 含跨函数追踪；参数、退出码与 JSON 结构不变，其他语言行为保持）
+- `reflect suggest` 词表校准：任意 `as` 类型转换、增补 unwrap/expect、输出按风险分级排序（return 类降权殿后）
+- 新增 `src/evidence.rs`：`CodeEvidence`/`CodeEvidenceChain` 证据信封与六结构体 `From`，`count_evidence`/`anchor_level` 评证迁入（含分级单测）
+- 新增 `reflect::lang` 多语言定位层（函数作用域/声明行/行级函数清单，自 main.rs 移植，py/go/ts 行为保持）
+- `list-rules` 标记 deprecated 指向 `contract list`（下一个 minor 移除）
+- 质量：`analysis.rs` 五项能力单测、`search.rs` 调用图快照防回退，线覆盖 92.72%
 
 ## [0.3.1] — 2026-08-16
 

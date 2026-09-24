@@ -71,6 +71,8 @@ cargo run -- review .
 cargo run -- audit .
 ```
 
+**本轮验收结果**：254 单测全绿、`cargo build --examples` 通过、线覆盖 92.72%（≥ 92% 基准）、`search.rs` 快照锁定、review/audit 自举正常（exit 0/1）——阶段二与阶段三于本轮全部完成。
+
 ## 收尾
 
 同步 README、AGENTS.md、CHANGELOG 与 ROADMAP；`docs/user-guide/reflect.md` 与 `docs/dev-guide/reflect-integration-tests.md` 必须同步，`docs/dev-guide/reflect.md` 按实现变更幅度决定（D16）。登记本轮未完成项。`apps/qtcloud-code` 子模块提交并推送，再更新父仓库指针。
@@ -79,7 +81,8 @@ cargo run -- audit .
 
 `ListRules` 废弃与 `build_call_graph` 过滤第三方调用已并入本轮（D15），以下四项登记下轮：
 
-- reflect 与 refactor 的语义缺陷批量修复：多语言节点识别、声明表作用域语义、解构绑定漏跟、`forward_slice` 同名误命中——清单与证据见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷；
+- reflect 与 refactor 的语义缺陷批量修复：多语言节点识别、声明表作用域语义、解构绑定漏跟、`forward_slice` 同名误命中——清单与证据见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷（定位层已移植 `reflect::lang`，剩 AST 节点语义与 graph 非 Rust 调用边）；
+- `EXTERNAL_CALLS` 方法名覆盖不全：黑名单以 audit 边 2 语义维护，`to_lowercase`/`trim_end_matches` 等 std 方法未收录仍留在 graph callees，扩充与家族词汇一并走 audit 侧；
 
 - Review 验证闭环：修改后重新 review，自动对比前后 finding；
 - refactor 提取函数：依赖 LLM 生成代码，需人工审核。
