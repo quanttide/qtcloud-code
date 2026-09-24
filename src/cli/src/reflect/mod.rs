@@ -23,11 +23,13 @@ pub struct CodeSuggestion {
 
 pub mod analysis;
 pub mod dataflow;
+pub mod lang;
 pub mod slice;
 pub mod suggest;
 
 pub use analysis::{CallGraphNode, CodeTypeInfo, ImpactResult};
 pub use analysis::{build_call_graph, code_search, forward_slice, impact_analysis, type_info};
 pub use dataflow::trace_variable;
+pub use lang::{find_decl_line, find_function_start, list_functions};
 pub use slice::{backward_slice, flatten_stmts};
 pub use suggest::suggest;

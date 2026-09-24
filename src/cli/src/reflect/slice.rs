@@ -89,13 +89,24 @@ pub fn flatten_stmts<'t>(node: &tree_sitter::Node<'t>) -> Vec<tree_sitter::Node<
 }
 
 fn recurse_stmt<'t>(node: &tree_sitter::Node<'t>, out: &mut Vec<tree_sitter::Node<'t>>) {
+    // block 的尾表达式（隐式返回，如 `Ok(result)`）不是语句节点，单独补进语句集——
+    // 否则目标行落在尾表达式上时切片为空（接线验收暴露）
+    let tail_id = if node.kind() == "block" && node.named_child_count() > 0 {
+        Some(
+            node.named_child(node.named_child_count() - 1)
+                .map(|t| t.id()),
+        )
+    } else {
+        None
+    };
     let mut cursor = node.walk();
     if cursor.goto_first_child() {
         loop {
             let child = cursor.node();
             if child.is_named() {
                 let k = child.kind();
-                if is_stmt(k) {
+                let is_tail = tail_id.flatten() == Some(child.id()) && k != "block";
+                if is_stmt(k) || is_tail {
                     out.push(child);
                 }
                 if is_container(k) {
@@ -304,6 +315,28 @@ mod tests {
                     .any(|s| s.line == 3 && s.text.contains("parts")),
                 "should trace from parts[2].trim() back to parts definition; got lines: {:?}",
                 result.iter().map(|s| s.line).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_backward_slice_on_tail_expression() {
+        // 目标行是函数尾表达式（非语句节点）时切片不应为空
+        let code = "fn f(x: i32) -> i32 {\n    let y = x + 1;\n    y * 2\n}";
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&tree_sitter_rust::LANGUAGE.into())
+            .unwrap();
+        if let Some(tree) = parser.parse(code, None) {
+            let result = backward_slice(code, &tree, Path::new("f.rs"), 3);
+            assert!(
+                result.iter().any(|s| s.line == 3),
+                "尾表达式本身应在切片内；got: {:?}",
+                result.iter().map(|s| s.line).collect::<Vec<_>>()
+            );
+            assert!(
+                result.iter().any(|s| s.text.contains("let y")),
+                "尾表达式依赖应追溯到上游声明"
             );
         }
     }

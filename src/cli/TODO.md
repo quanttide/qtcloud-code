@@ -4,13 +4,6 @@
 
 ## 阶段二 重构 main.rs
 
-- [ ] 多语言节点识别：slice/trace/graph 接线时移植 `main.rs` 的多语言函数定位与声明识别（lab 仅 Rust，py 探针见 dev-guide/reflect.md）
-- [ ] 以 git 历史中的既有实现为对照基准，不额外留存快照
-- [ ] `run_reflect_slice` 改调 `reflect::backward_slice`，参数、退出码与 JSON 结构保持
-- [ ] `run_reflect_trace` 改调 `reflect::trace_variable`，补齐跨函数追踪，输出按新增功能验收（D8）
-- [ ] `run_reflect_graph` 改调 `reflect::build_call_graph`，按新 JSON 契约输出
-- [ ] 四个子命令的断言全部按新实现重写，对照退回 git 历史（D9）
-- [ ] `ListRules` 加 `#[deprecated]` 指向 `contract list`（D15）
 
 ## 阶段三 验收
 

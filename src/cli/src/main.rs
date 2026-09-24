@@ -41,6 +41,9 @@ enum Commands {
         json: bool,
     },
     /// 列出可用检测规则
+    ///
+    /// 已废弃（D15）：改用 `contract list`，下一个 minor 移除
+    #[deprecated(since = "0.3.1", note = "改用 `contract list`（下一个 minor 移除）")]
     ListRules {
         /// JSON 输出
         #[arg(long)]
@@ -186,6 +189,7 @@ fn main() {
             status,
         } => run_review(&path, &format, rules, &mode, status),
         Commands::Audit { path, json } => run_audit(&path, json),
+        #[allow(deprecated)]
         Commands::ListRules { json } => run_list_rules(json),
         Commands::Contract { action } => match action {
             ContractAction::Init { path } => run_contract_init(&path),
@@ -569,61 +573,29 @@ fn run_reflect_slice(file: String, line: usize, json: bool) -> Result<bool, Stri
         .parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    let root = tree.root_node();
-    let root_line = root.start_position().row + 1;
-    if line < root_line || line > 9999 {
-        eprintln!("未找到追溯结果（行 {} 可能在函数体外或无法解析）", line);
-        return Ok(false);
-    }
-
-    // AST-based function scope detection: find the function containing target line
-    let lang_name = ext;
-    let mut fn_start: usize = 1;
-    let mut _fn_end: usize = source.lines().count();
-    let cursor = &mut tree.walk();
-    'search: loop {
-        let node = cursor.node();
-        let kind = node.kind();
-        let is_function = match lang_name {
-            "rs" => kind == "function_item",
-            "py" => kind == "function_definition",
-            "go" => kind == "function_declaration",
-            _ => kind == "function_declaration" || kind == "function",
-        };
-        if is_function {
-            let s = node.start_position().row + 1;
-            let e = node.end_position().row + 1;
-            if s <= line && line <= e {
-                fn_start = s;
-                _fn_end = e;
-                break 'search;
-            }
-        }
-        if !cursor.goto_first_child() {
-            loop {
-                if cursor.goto_next_sibling() {
+    // Rust 走 AST 依赖追溯（新增能力）；其余语言保持移植前的行级收集——
+    // 多语言函数定位已移植进 reflect::lang（D8，py 探针验证过回归风险）
+    let entries: Vec<(usize, String)> = if ext == "rs" {
+        qtcloud_code_cli::reflect::backward_slice(&source, &tree, path, line)
+            .into_iter()
+            .map(|e| (e.line, e.text))
+            .collect()
+    } else {
+        let fn_start =
+            qtcloud_code_cli::reflect::find_function_start(&tree, ext, line).unwrap_or(1);
+        let mut entries = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        for i in (fn_start.saturating_sub(1)..line.min(lines.len())).rev() {
+            let t = lines[i].trim();
+            if !t.is_empty() && !t.starts_with("//") && !t.starts_with("#") {
+                entries.push((i + 1, t.to_string()));
+                if entries.len() >= 10 {
                     break;
                 }
-                if !cursor.goto_parent() {
-                    break 'search;
-                }
             }
         }
-    }
-
-    // Collect statements from fn_start to target line, reversed, top 10
-    let mut entries: Vec<(usize, String)> = Vec::new();
-    let lines: Vec<&str> = source.lines().collect();
-    for i in (fn_start.saturating_sub(1)..line.min(lines.len())).rev() {
-        let t = lines[i].trim();
-        if !t.is_empty() && !t.starts_with("//") && !t.starts_with("#") {
-            let n = i + 1;
-            entries.push((n, t.to_string()));
-            if entries.len() >= 10 {
-                break;
-            }
-        }
-    }
+        entries
+    };
 
     if entries.is_empty() {
         eprintln!("未找到追溯结果（行 {} 可能在函数体外或无法解析）", line);
@@ -631,6 +603,7 @@ fn run_reflect_slice(file: String, line: usize, json: bool) -> Result<bool, Stri
     }
 
     if json {
+        // JSON 结构保持（D8）：[{line, text}]
         let arr: Vec<serde_json::Value> = entries
             .iter()
             .map(|(ln, text)| serde_json::json!({"line": ln, "text": text}))
@@ -659,60 +632,40 @@ fn run_reflect_trace(
     let source = std::fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut parser = make_parser(ext)?;
-    let _tree = parser
+    let tree = parser
         .parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    // Multi-language variable declaration finder
+    // 多语言声明行识别（已移植进 reflect::lang）；显式 line 优先
     let actual_line = match line {
         Some(l) => l,
-        None => {
-            let mut found = None;
-            for (i, src_line) in source.lines().enumerate() {
-                let n = i + 1;
-                let t = src_line.trim();
-                let is_decl = match ext {
-                    "rs" => {
-                        t.starts_with(&format!("let {} ", var))
-                            || t.starts_with(&format!("let {}:", var))
-                            || t.starts_with(&format!("let mut {} ", var))
-                            || t.starts_with(&format!("let mut {}:", var))
-                    }
-                    "py" => {
-                        t.starts_with(&format!("{} =", var)) || t.starts_with(&format!("{}:", var))
-                    }
-                    "go" => {
-                        t.starts_with(&format!("var {} ", var))
-                            || t.starts_with(&format!("{} :=", var))
-                            || t.starts_with(&format!("{},", var))
-                    }
-                    _ => false, // TS: let/const/var — too name-collision prone for auto-detect
-                };
-                if is_decl {
-                    found = Some(n);
-                    break;
-                }
-            }
-            found.unwrap_or(1)
-        }
+        None => qtcloud_code_cli::reflect::find_decl_line(&source, &var, ext).unwrap_or(1),
     };
 
-    // Walk backwards from actual_line collecting var assignments
-    let mut entries: Vec<(usize, String, String)> = Vec::new();
-    let lines: Vec<&str> = source.lines().collect();
-    for i in (0..actual_line.min(lines.len())).rev() {
-        let n = i + 1;
-        let t = lines[i].trim();
-        if t.contains(&var) && (t.contains("let ") || t.contains('=')) {
-            let from = if let Some(eq) = t.find('=') {
-                t[eq + 1..].trim_end_matches(';').trim().to_string()
-            } else {
-                String::new()
-            };
-            entries.push((n, var.clone(), from));
-            break;
+    // Rust 走 AST 数据流（含跨函数追踪）；其余语言保持移植前的行级回溯（D8）
+    let entries: Vec<(usize, String, String)> = if ext == "rs" {
+        qtcloud_code_cli::reflect::trace_variable(&source, &tree, actual_line, &var)
+            .into_iter()
+            .map(|e| (e.line, e.var, e.from))
+            .collect()
+    } else {
+        let mut entries: Vec<(usize, String, String)> = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        for i in (0..actual_line.min(lines.len())).rev() {
+            let n = i + 1;
+            let t = lines[i].trim();
+            if t.contains(&var) && (t.contains("let ") || t.contains('=')) {
+                let from = if let Some(eq) = t.find('=') {
+                    t[eq + 1..].trim_end_matches(';').trim().to_string()
+                } else {
+                    String::new()
+                };
+                entries.push((n, var.clone(), from));
+                break;
+            }
         }
-    }
+        entries
+    };
 
     if entries.is_empty() {
         eprintln!("未找到变量 '{}' 的追踪路径（声明行 {})", var, actual_line);
@@ -720,6 +673,7 @@ fn run_reflect_trace(
     }
 
     if json {
+        // JSON 结构保持（D8）：[{line, var, from}]
         let arr: Vec<serde_json::Value> = entries
             .iter()
             .map(|(ln, v, from)| serde_json::json!({"line": ln, "var": v, "from": from}))
@@ -747,64 +701,68 @@ fn run_reflect_graph(file: String, json: bool) -> Result<bool, String> {
     let source = std::fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut parser = make_parser(ext)?;
-    let _tree = parser
+    let tree = parser
         .parse(&source, None)
         .ok_or_else(|| format!("解析失败: {}", file))?;
 
-    // Multi-language function finder (line-based)
-    let mut functions: Vec<(usize, String)> = Vec::new();
-    for (i, src_line) in source.lines().enumerate() {
-        let n = i + 1;
-        let t = src_line.trim();
-        let is_fn_sig = match ext {
-            "rs" => t.starts_with("fn ") && t.contains('(') && t.contains(')'),
-            "py" => t.starts_with("def ") && t.contains('(') && t.contains(')'),
-            "go" => t.starts_with("func ") && t.contains('(') && t.contains(')'),
-            _ => {
-                (t.starts_with("fn ") || t.starts_with("function "))
-                    && t.contains('(')
-                    && t.contains(')')
-            }
-        };
-        if is_fn_sig {
-            let name = t
-                .split('(')
-                .next()
-                .and_then(|s| {
-                    s.strip_prefix("fn ")
-                        .or_else(|| s.strip_prefix("def "))
-                        .or_else(|| s.strip_prefix("func "))
-                        .or_else(|| s.strip_prefix("function "))
-                })
-                .map(|s| s.trim().to_string())
-                .unwrap_or_default();
-            if !name.is_empty() {
-                functions.push((n, name));
-            }
-        }
-    }
+    // Rust 走 AST 调用图（D15 语义）；其余语言行级函数清单，调用边留给下轮多语言节点识别
+    let nodes: Vec<qtcloud_code_cli::evidence::CodeEvidence> = if ext == "rs" {
+        let graph = qtcloud_code_cli::reflect::build_call_graph(&source, &tree);
+        let mut nodes: Vec<_> = graph
+            .into_values()
+            .map(|n| qtcloud_code_cli::evidence::CodeEvidence::Graph {
+                file: file.clone(),
+                line: n.line,
+                text: n.name,
+                callees: n.callees,
+                callers: n.callers,
+            })
+            .collect();
+        nodes.sort_by_key(|e| e.line());
+        nodes
+    } else {
+        qtcloud_code_cli::reflect::list_functions(&source, ext)
+            .into_iter()
+            .map(
+                |(ln, name)| qtcloud_code_cli::evidence::CodeEvidence::Graph {
+                    file: file.clone(),
+                    line: ln,
+                    text: name,
+                    callees: vec![],
+                    callers: vec![],
+                },
+            )
+            .collect()
+    };
 
-    if functions.is_empty() {
+    if nodes.is_empty() {
         eprintln!("未找到函数定义");
         return Ok(false);
     }
 
     if json {
-        let arr: Vec<serde_json::Value> = functions
-            .iter()
-            .map(|(ln, name)| serde_json::json!({"line": ln, "name": name}))
-            .collect();
+        // 新 JSON 契约（D10）：{file, nodes[]}，节点为 kind:"graph" 证据信封
+        let obj = serde_json::json!({
+            "file": file,
+            "nodes": nodes,
+        });
         println!(
             "{}",
-            serde_json::to_string_pretty(&arr).map_err(|e| e.to_string())?
+            serde_json::to_string_pretty(&obj).map_err(|e| e.to_string())?
         );
         return Ok(true);
     }
 
-    for (ln, name) in &functions {
-        println!("L{:04} {} — 调用: 0, 被调用: 0", ln, name);
+    for n in &nodes {
+        println!(
+            "L{:04} {} — 调用: {:?}, 被调用: {:?}",
+            n.line(),
+            n.text(),
+            n.callees(),
+            n.callers()
+        );
     }
-    eprintln!("（共 {} 个函数）", functions.len());
+    eprintln!("（共 {} 个函数）", nodes.len());
     Ok(true)
 }
 

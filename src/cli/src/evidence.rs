@@ -122,6 +122,22 @@ impl CodeEvidence {
             | Self::Type { text, .. } => text,
         }
     }
+
+    /// 调用边（仅 `graph` 信封有值，其余为空切片）
+    pub fn callees(&self) -> &[String] {
+        match self {
+            Self::Graph { callees, .. } => callees,
+            _ => &[],
+        }
+    }
+
+    /// 调用方（仅 `graph` 信封有值，其余为空切片）
+    pub fn callers(&self) -> &[String] {
+        match self {
+            Self::Graph { callers, .. } => callers,
+            _ => &[],
+        }
+    }
 }
 
 impl From<SliceEntry> for CodeEvidence {

@@ -187,6 +187,22 @@ fn test_slice_json() {
     assert!(parsed.as_array().unwrap().len() >= 1);
     assert!(parsed[0]["line"].is_number());
     assert!(parsed[0]["text"].is_string());
+    assert!(
+        parsed[0].get("file").is_none(),
+        "slice JSON 结构保持 {{line, text}}"
+    );
+    // AST 依赖追溯（新增功能验收）：从目标行应追到上游 let 声明
+    let texts: Vec<&str> = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["text"].as_str().unwrap())
+        .collect();
+    assert!(
+        texts.iter().any(|t| t.contains("let ")),
+        "应含上游 let 声明（AST 追溯），got: {:?}",
+        texts
+    );
 }
 
 // ============ trace ============
@@ -276,6 +292,11 @@ fn test_trace_json() {
     assert!(parsed.is_array());
     assert!(parsed[0]["var"].is_string());
     assert!(parsed[0]["from"].is_string());
+    // AST 数据流（新增功能验收）：price_int 应多步追到上游
+    assert!(
+        parsed.as_array().unwrap().len() >= 2,
+        "AST 数据流应为多步路径"
+    );
 }
 
 // ============ graph ============
@@ -331,9 +352,26 @@ fn test_graph_json() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array());
-    assert!(parsed.as_array().unwrap().len() >= 1);
-    assert!(parsed[0]["name"].is_string());
+    assert!(parsed.is_object(), "graph --json 应为契约对象（D10）");
+    assert_eq!(parsed["file"].as_str().unwrap(), fx.path.to_str().unwrap());
+    let nodes = parsed["nodes"].as_array().expect("nodes 数组");
+    assert!(nodes.len() >= 3, "三个函数节点，got: {:?}", nodes);
+    let names: Vec<&str> = nodes.iter().map(|n| n["text"].as_str().unwrap()).collect();
+    assert!(names.contains(&"helper") && names.contains(&"process") && names.contains(&"main"));
+    let process = nodes
+        .iter()
+        .find(|n| n["text"] == "process")
+        .expect("process 节点");
+    assert_eq!(process["kind"], "graph", "节点为 kind:graph 证据信封");
+    assert!(process["line"].is_number());
+    assert!(
+        process["callees"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "helper"),
+        "process 调用 helper（调用边随新契约输出）"
+    );
 }
 
 // ============ suggest ============

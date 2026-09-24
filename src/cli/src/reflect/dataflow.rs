@@ -4,6 +4,9 @@ use crate::reflect::FlowEntry;
 use crate::walk::walk_all;
 
 /// 追踪变量的数据流路径：从使用点追溯到源头
+///
+/// 跨函数追踪（本轮新增）：RHS 中出现文件内函数名时，追入其返回/尾表达式引用的
+/// 变量；实参词元由同一 RHS 的词法提取自然覆盖，参数名无声明则自然止步。
 pub fn trace_variable(
     source: &str,
     tree: &tree_sitter::Tree,
@@ -12,6 +15,7 @@ pub fn trace_variable(
 ) -> Vec<FlowEntry> {
     let root = tree.root_node();
     let decls = collect_all_decls(&root, source);
+    let fns = collect_fn_ret_vars(&root, source);
     let mut path = Vec::new();
     let mut visited = HashSet::new();
     let mut stack = vec![(var.to_string(), start_line)];
@@ -41,13 +45,73 @@ pub fn trace_variable(
             line: decl_line,
         });
 
-        // 从 RHS 提取上游变量继续追踪
+        // 从 RHS 提取上游变量继续追踪；命中文件内函数名则跨函数追入返回表达式
         for upstream in extract_upstream_vars(&from) {
+            if !decls.contains_key(&upstream)
+                && let Some(ret_vars) = fns.get(&upstream)
+            {
+                for rv in ret_vars {
+                    stack.push((rv.clone(), decl_line));
+                }
+            }
             stack.push((upstream, decl_line));
         }
     }
 
     path
+}
+
+/// 文件内函数名 → 返回语句与尾表达式引用的变量集（跨函数追踪的入口表）
+fn collect_fn_ret_vars(root: &tree_sitter::Node, source: &str) -> HashMap<String, Vec<String>> {
+    let mut fns: HashMap<String, Vec<String>> = HashMap::new();
+    walk_all(root, &mut |n| {
+        if !(n.is_named() && n.kind() == "function_item") {
+            return;
+        }
+        let Some(name) = n
+            .child_by_field_name("name")
+            .and_then(|nn| nn.utf8_text(source.as_bytes()).ok())
+            .map(|s| s.to_string())
+        else {
+            return;
+        };
+        let Some(body) = n.child_by_field_name("body") else {
+            return;
+        };
+        let mut ret_vars: Vec<String> = Vec::new();
+        let mut last_child: Option<tree_sitter::Node> = None;
+        let mut cur = body.walk();
+        if cur.goto_first_child() {
+            loop {
+                let child = cur.node();
+                if child.is_named() {
+                    if child.kind() == "return_statement"
+                        && let Ok(text) = child.utf8_text(source.as_bytes())
+                    {
+                        let expr = text.trim_start_matches("return").trim();
+                        ret_vars.extend(extract_upstream_vars(expr));
+                    }
+                    last_child = Some(child);
+                }
+                if !cur.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+        // 尾表达式（隐式返回）
+        if let Some(last) = last_child
+            && last.kind() != "return_statement"
+            && let Ok(text) = last.utf8_text(source.as_bytes())
+        {
+            ret_vars.extend(extract_upstream_vars(text));
+        }
+        ret_vars.sort();
+        ret_vars.dedup();
+        if !ret_vars.is_empty() {
+            fns.insert(name, ret_vars);
+        }
+    });
+    fns
 }
 
 fn collect_all_decls(root: &tree_sitter::Node, source: &str) -> HashMap<String, usize> {
@@ -183,6 +247,26 @@ mod tests {
         if let Some(tree) = p.parse(code, None) {
             let r = trace_variable(code, &tree, 1, "nonexistent");
             assert!(r.is_empty(), "unknown var should return empty");
+        }
+    }
+
+    #[test]
+    fn test_trace_variable_cross_function() {
+        let code = "fn helper(base: i32) -> i32 {\n    let scaled = base * 2;\n    scaled + 1\n}\nfn main() {\n    let offset = 10;\n    let total = helper(offset);\n    total\n}";
+        let mut p = tree_sitter::Parser::new();
+        if p.set_language(&tree_sitter_rust::LANGUAGE.into()).is_err() {
+            return;
+        }
+        if let Some(tree) = p.parse(code, None) {
+            let r = trace_variable(code, &tree, 7, "total");
+            let vars: Vec<&str> = r.iter().map(|e| e.var.as_str()).collect();
+            assert!(vars.contains(&"total"), "起点自身：{:?}", vars);
+            assert!(vars.contains(&"offset"), "实参变量经调用点覆盖：{:?}", vars);
+            assert!(
+                vars.contains(&"scaled"),
+                "跨函数：经 helper 返回尾表达式追入函数体：{:?}",
+                vars
+            );
         }
     }
 }
