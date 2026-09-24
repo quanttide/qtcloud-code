@@ -2,6 +2,7 @@ pub mod audit;
 pub mod config;
 pub mod contract;
 pub mod detector;
+pub mod evidence;
 pub mod llm;
 pub mod output;
 pub mod parser;
