@@ -111,8 +111,10 @@ pub fn build_call_graph(source: &str, tree: &tree_sitter::Tree) -> HashMap<Strin
         }
     });
 
-    // D15 拆解：项目内调用过滤（复用 audit::project_refs，与 audit 边 2 同源）+
-    // 去重升序（确定性输出）；外部/标准库按同源策略丢弃
+    // D15 拆解：项目内调用过滤——文件内定义的函数优先保留（项目内关系不因撞黑名单名丢失，
+    // 如 `matches`），其余按 audit::project_refs 同源策略（与 audit 边 2 同源）；
+    // 再去重升序（确定性输出）；外部/标准库按同源策略丢弃
+    let defined: HashSet<String> = nodes.keys().cloned().collect();
     for callees in nodes.values_mut() {
         let refs: Vec<TestRef> = callees
             .iter()
@@ -123,7 +125,7 @@ pub fn build_call_graph(source: &str, tree: &tree_sitter::Tree) -> HashMap<Strin
             })
             .collect();
         let kept: HashSet<String> = project_refs(&refs).into_iter().map(|r| r.name).collect();
-        callees.retain(|c| kept.contains(c.as_str()));
+        callees.retain(|c| defined.contains(c.as_str()) || kept.contains(c.as_str()));
         callees.sort();
         callees.dedup();
     }
@@ -459,5 +461,18 @@ mod tests {
             "闭包调用剔除后无项目内调用：{:?}",
             run.callees
         );
+    }
+
+    #[test]
+    fn test_call_graph_project_name_wins_denylist() {
+        let code = "fn matches(q: &str) -> bool { !q.is_empty() }\nfn search(q: &str) -> bool { matches(q) }";
+        let tree = parse(code);
+        let g = build_call_graph(code, &tree);
+        assert_eq!(
+            g.get("search").unwrap().callees,
+            vec!["matches"],
+            "文件内定义的 matches 优先于黑名单名，项目内关系不丢"
+        );
+        assert_eq!(g.get("matches").unwrap().callers, vec!["search"]);
     }
 }

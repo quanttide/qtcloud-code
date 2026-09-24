@@ -72,7 +72,7 @@ reflect graph <file>
 }
 ```
 
-语义（D15 拆解定型）：callee 取终末方法短名（`a.b.c()` → `c`、`Foo::new()` → `new`），闭包体不作调用名；外部/标准库调用按 `audit::project_refs` 同源策略（`EXTERNAL_CALLS` 单一事实源）过滤；单条限长 80 字符，防长链与多行文本撑爆契约。
+语义（D15 拆解定型）：callee 取终末方法短名（`a.b.c()` → `c`、`Foo::new()` → `new`），闭包体不作调用名；外部/标准库调用按 `audit::project_refs` 同源策略（`EXTERNAL_CALLS` 单一事实源）过滤，文件内定义的函数优先于黑名单（项目内关系不因撞名丢失）；单条限长 80 字符，防长链与多行文本撑爆契约。
 
 ---
 
