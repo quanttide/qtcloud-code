@@ -47,10 +47,7 @@ src/reflect/
 └── suggest.rs    suggest（自 main.rs 迁入的文本实现）
 ```
 
-`compute_confidence` 归属已拍板（证据主线）：阶段二随 `count_evidence` 迁入 `src/evidence.rs`。剩余两项：
-
-- 为 `analysis.rs` 补单元测试（D11）——四项新增能力的验收与覆盖率都落在单测上；
-- 删除实验室 `cross_function_slice` 及其专用辅助函数。
+`compute_confidence` 归属已拍板（证据主线）：阶段二随 `count_evidence` 迁入 `src/evidence.rs`。尾项已收口：`analysis.rs` 单测补齐（D11——四项新增能力的验收与覆盖率落在单测），实验室 `cross_function_slice` 及其专用辅助已删，阶段一至此全部完成。
 
 ## 阶段二 重构 main.rs
 

@@ -2,11 +2,6 @@
 
 步骤说明见 [ROADMAP](./ROADMAP.md)，决策结论见 [AGENTS](./AGENTS.md)。
 
-## 阶段一 迁 reflect 入 src
-
-- [ ] 为 `analysis.rs` 补单元测试（D11）
-- [ ] 删除实验室 `cross_function_slice` 及其专用辅助函数
-
 ## 阶段二 重构 main.rs
 
 - [ ] `src/evidence.rs`：`CodeEvidence` / `CodeEvidenceChain` 统一信封，`count_evidence`、`anchor_level` 迁入并随迁 3 个分级单测（归属层落定）

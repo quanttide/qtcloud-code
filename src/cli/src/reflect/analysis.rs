@@ -277,3 +277,99 @@ pub fn type_info(source: &str, tree: &tree_sitter::Tree) -> Vec<CodeTypeInfo> {
     });
     results
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &str = "fn main() {\n    let base = helper(1);\n    let total: i32 = base + 1;\n    println!(\"{}: {}\", base, total);\n}\n\nfn helper(x: i32) -> i32 {\n    x + 1\n}";
+
+    fn parse(code: &str) -> tree_sitter::Tree {
+        let mut p = tree_sitter::Parser::new();
+        p.set_language(&tree_sitter_rust::LANGUAGE.into())
+            .expect("加载 Rust 语法");
+        p.parse(code, None).expect("解析源码")
+    }
+
+    #[test]
+    fn test_forward_slice_finds_usages_sorted() {
+        let tree = parse(SAMPLE);
+        let hits = forward_slice(SAMPLE, &tree, "sample.rs", 2);
+        let lines: Vec<usize> = hits.iter().map(|e| e.line).collect();
+        assert_eq!(lines, vec![3, 4], "base 的使用点按行号升序、且不含定义行");
+        assert!(hits.iter().all(|e| e.file == "sample.rs"));
+        assert!(hits.iter().all(|e| e.text == "base"));
+    }
+
+    #[test]
+    fn test_forward_slice_non_definition_line_empty() {
+        let tree = parse(SAMPLE);
+        assert!(
+            forward_slice(SAMPLE, &tree, "sample.rs", 5).is_empty(),
+            "非 let 行返回空"
+        );
+    }
+
+    #[test]
+    fn test_call_graph_nodes_and_relations() {
+        let tree = parse(SAMPLE);
+        let g = build_call_graph(SAMPLE, &tree);
+        let main = g.get("main").expect("main 节点存在");
+        assert_eq!(main.line, 1);
+        assert_eq!(main.callees, vec!["helper"], "main 调用 helper");
+        assert!(main.callers.is_empty());
+        let helper = g.get("helper").expect("helper 节点存在");
+        assert_eq!(helper.line, 7);
+        assert!(helper.callees.is_empty());
+        assert_eq!(helper.callers, vec!["main"], "helper 被 main 调用");
+    }
+
+    #[test]
+    fn test_impact_analysis_variable_def() {
+        let tree = parse(SAMPLE);
+        let imp = impact_analysis(SAMPLE, &tree, "sample.rs", 2);
+        assert_eq!(imp.var_name, "base");
+        assert_eq!(imp.def_line, 2);
+        let lines: Vec<usize> = imp.forward_usages.iter().map(|e| e.line).collect();
+        assert_eq!(lines, vec![3, 4]);
+        assert!(imp.callees.is_empty(), "变量不是函数节点，callees 为空");
+    }
+
+    #[test]
+    fn test_impact_analysis_function_line() {
+        let tree = parse(SAMPLE);
+        let imp = impact_analysis(SAMPLE, &tree, "sample.rs", 1);
+        assert_eq!(imp.var_name, "main", "退化到所在函数名");
+        assert!(imp.forward_usages.is_empty());
+        assert_eq!(imp.callees, vec!["helper"]);
+    }
+
+    #[test]
+    fn test_code_search_by_kind() {
+        let tree = parse(SAMPLE);
+        let calls = code_search(SAMPLE, &tree, "call_expression");
+        assert_eq!(
+            calls.len(),
+            1,
+            "样例中仅 helper(1) 是调用表达式（println! 是宏）"
+        );
+        assert_eq!(calls[0].line, 2);
+        assert_eq!(calls[0].text, "helper(1)");
+
+        let decls = code_search(SAMPLE, &tree, "let_declaration");
+        let lines: Vec<usize> = decls.iter().map(|e| e.line).collect();
+        assert_eq!(lines, vec![2, 3]);
+    }
+
+    #[test]
+    fn test_type_info_annotations() {
+        let tree = parse(SAMPLE);
+        let info = type_info(SAMPLE, &tree);
+        assert_eq!(info.len(), 2, "两条 let 声明");
+        assert_eq!(info[0].var, "base");
+        assert_eq!(info[0].line, 2);
+        assert!(info[0].type_annotation.is_none(), "base 无注解");
+        assert_eq!(info[1].var, "total");
+        assert_eq!(info[1].type_annotation.as_deref(), Some("i32"));
+    }
+}
