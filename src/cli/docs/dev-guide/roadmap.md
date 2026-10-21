@@ -1,6 +1,6 @@
 # ROADMAP qtcloud-code-cli
 
-工作清单见 [TODO](./TODO.md)，决策结论见 [AGENTS](./AGENTS.md)。
+工作清单见 [TODO](../../TODO.md)，决策结论见 [AGENTS](../../AGENTS.md)。
 
 ## 意图
 
@@ -16,7 +16,7 @@
 
 ## 证据主线（设计方向）
 
-**证据与发现分层**（对齐 `quanttide-audit-toolkit` 四聚合）：证据是未判定的素材（reflect 的切片/数据流/调用图与命中行材料），发现是挂了证据的判定（review 规则命中、audit 对齐差异——携 criterion、待补 `evidence[]`）；LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`CodeEvidence`/`CodeEvidenceChain` 统一信封，即 `AuditEvidence` 的结构化形式；`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；问题层按四聚合适配与 LLM 因果解释器登记下轮。设计全文见 [docs/dev-guide/index.md](docs/dev-guide/index.md) 证据主线与 [docs/dev-guide/reflect.md](docs/dev-guide/reflect.md) 证据模型。
+**证据与发现分层**（对齐 `quanttide-audit-toolkit` 四聚合）：证据是未判定的素材（reflect 的切片/数据流/调用图与命中行材料），发现是挂了证据的判定（review 规则命中、audit 对齐差异——携 criterion、待补 `evidence[]`）；LLM 只在证据之上解释。落实路径：阶段二建 `src/evidence.rs`（`CodeEvidence`/`CodeEvidenceChain` 统一信封，即 `AuditEvidence` 的结构化形式；`count_evidence` 迁入，归属层就此落定），D10 契约取证据信封形态，reflect 六个结构体转入；问题层按四聚合适配与 LLM 因果解释器登记下轮。设计全文见 [docs/dev-guide/index.md](index.md) 证据主线与 [docs/dev-guide/reflect.md](reflect.md) 证据模型。
 
 ## 现状与差距
 
@@ -53,7 +53,7 @@ src/reflect/
 
 先落证据模块 `src/evidence.rs`：`CodeEvidence` 统一信封（kind/file/line/text + 按 kind 的结构化负载）与 `CodeEvidenceChain`，`count_evidence`、`anchor_level` 迁入并随迁分级单测——归属层就此落定（证据主线）；reflect 六个输出结构体经 `From` 转入，`examples/evidence.rs` 改用 lib 评证、删除内联计数。
 
-`build_call_graph` 的 callee 语义先按真实案例暴露的问题拆解（D15）：取终末方法短名并剔除闭包体、项目内调用过滤复用 `audit::project_refs`、输出单行限长；语义定型后再起草 `graph` JSON 契约——取证据信封形态（kind/line/text + 函数节点与调用边），直接落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）。`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变，并移植 `main.rs` 既有的多语言函数定位——lab 实现仅识别 Rust 节点，直接接线会在 py/go 上回归（py 探针已验证，详见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷）。
+`build_call_graph` 的 callee 语义先按真实案例暴露的问题拆解（D15）：取终末方法短名并剔除闭包体、项目内调用过滤复用 `audit::project_refs`、输出单行限长；语义定型后再起草 `graph` JSON 契约——取证据信封形态（kind/line/text + 函数节点与调用边），直接落入 `docs/user-guide/reflect.md`，契约先于测试改动（D10）。`run_reflect_slice`、`run_reflect_trace`、`run_reflect_graph` 改为调用 `reflect::*`，参数与退出码保持不变，并移植 `main.rs` 既有的多语言函数定位——lab 实现仅识别 Rust 节点，直接接线会在 py/go 上回归（py 探针已验证，详见 [dev-guide/reflect.md](reflect.md) 已知缺陷）。
 
 `tests/reflect.rs` 四个子命令的断言全部按新实现重写，对照退回 git 历史人工比对（D9）。`trace_variable` 本轮补齐跨函数追踪；`suggest` 保留文本实现、词表按真实案例校准——cast 放宽到任意 `as` 类型（现仅认 f64/i32，真实转换多为 usize/u64）、增补 unwrap/expect、return 类按发现分级降权；`ListRules` 加 `#[deprecated]` 指向 `contract list`，下一个 minor 移除（D15）。
 
@@ -81,7 +81,7 @@ cargo run -- audit .
 
 `ListRules` 废弃与 `build_call_graph` 过滤第三方调用已并入本轮（D15），以下四项登记下轮：
 
-- reflect 与 refactor 的语义缺陷批量修复：多语言节点识别、声明表作用域语义、解构绑定漏跟、`forward_slice` 同名误命中——清单与证据见 [dev-guide/reflect.md](docs/dev-guide/reflect.md) 已知缺陷（定位层已移植 `reflect::lang`，剩 AST 节点语义与 graph 非 Rust 调用边）；
+- reflect 与 refactor 的语义缺陷批量修复：多语言节点识别、声明表作用域语义、解构绑定漏跟、`forward_slice` 同名误命中——清单与证据见 [dev-guide/reflect.md](reflect.md) 已知缺陷（定位层已移植 `reflect::lang`，剩 AST 节点语义与 graph 非 Rust 调用边）；
 - `EXTERNAL_CALLS` 方法名覆盖不全：黑名单以 audit 边 2 语义维护，`to_lowercase`/`trim_end_matches` 等 std 方法未收录仍留在 graph callees，扩充与家族词汇一并走 audit 侧；
 
 - Review 验证闭环：修改后重新 review，自动对比前后 finding；

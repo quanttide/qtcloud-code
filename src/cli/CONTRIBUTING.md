@@ -35,6 +35,6 @@ cargo run -- audit .
 
 ## 文档
 
-对用户可见的变更同步更新 [CHANGELOG](./CHANGELOG.md)，方向或阶段调整同步 [ROADMAP](./ROADMAP.md)。
+对用户可见的变更同步更新 [CHANGELOG](./CHANGELOG.md)，方向或阶段调整同步 [ROADMAP](docs/dev-guide/roadmap.md)。
 
 文档遵循《量潮科技文档格式章程》，要点为格式克制（能用段落即不用列表，能用列表即不用表格）、标题不超过三级且一级标题全文唯一、代码块必须标注语言、中文引号使用直角引号「」。

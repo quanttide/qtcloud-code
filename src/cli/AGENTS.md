@@ -12,7 +12,7 @@
 
 ## 决策风格
 
-以下由实验室成果迁移的决策推测得出（工作清单见 [TODO](./TODO.md)，背景见 [ROADMAP](./ROADMAP.md)）。决策均已拍板并收入本节，原文见 git 历史中的 DECISIONS。项目处于早期，更新可以激进，不为旧契约、死代码或临时产物留包袱：
+以下由实验室成果迁移的决策推测得出（工作清单见 [TODO](./TODO.md)，背景见 [ROADMAP](docs/dev-guide/roadmap.md)）。决策均已拍板并收入本节，原文见 git 历史中的 DECISIONS。项目处于早期，更新可以激进，不为旧契约、死代码或临时产物留包袱：
 
 - 以原始意图为准——选项与建议不符意图时改选，取「先公开 `pub mod reflect` 再写薄 example」，放弃内联自包含；
 - 消除临时产物与死代码——直接删除实验室 `cross_function_slice` 与 `chain_exp`、`llm_exp` 原件，`lab.rs` 无引用则删，不留输出快照，example 不做自包含副本（D13）；
